@@ -1,16 +1,38 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+const USUARIOS = [
+  {
+    rm: '557887',
+    senha: '210106',
+    nome: 'Kleber da Silva',
+    foto: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQX1tZJeOCL9Qghfzjzsi3qcndhtIJoLafCSg&s',
+  },
+  {
+    rm: '554944',
+    senha: '210106',
+    nome: 'Nicolas Barutti',
+    foto: 'https://i.pinimg.com/236x/76/f4/e1/76f4e168cdfc94d066ebbbf6d3585e2c.jpg',
+  },
+  {
+    rm: '558471',
+    senha: '210106',
+    nome: 'Lucas Rainha',
+    foto: 'https://media.tenor.com/TiMKsmmhZMIAAAAM/messi-meme.gif',
+  },
+];
 
 export default function LoginScreen({ onLoginSuccess }) {
   const [rm, setRm] = useState('');
   const [senha, setSenha] = useState('');
 
   const handleLogin = () => {
-    if (rm === '557887' && senha === '210106') {
-      onLoginSuccess();
+    const usuario = USUARIOS.find(user => user.rm === rm && user.senha === senha);
+    if (usuario) {
+      onLoginSuccess(usuario);
     } else {
-      alert('RM ou senha incorretos');
+      Alert.alert('Erro', 'RM ou senha incorretos');
     }
   };
 

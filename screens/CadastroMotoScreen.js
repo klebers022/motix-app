@@ -1,36 +1,47 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Button, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 
 const vagasSetorA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'];
 
-export default function CadastroScreen() {
+export default function CadastroMotoScreen({ userRM }) {
   const [placa, setPlaca] = useState('');
   const [vagaSelecionada, setVagaSelecionada] = useState(vagasSetorA[0]);
 
   const handleCadastro = async () => {
-    const novaMoto = {
-      placa: placa.trim(),
-      vaga: vagaSelecionada,
-      dataHora: new Date().toISOString(), // salva ISO para facilitar relatórios
-    };
-
-    const dados = await AsyncStorage.getItem('motos');
-    const lista = dados ? JSON.parse(dados) : [];
-
-    const vagaOcupada = lista.some((m) => m.vaga === vagaSelecionada);
-    if (vagaOcupada) {
-      Alert.alert('Erro', 'Essa vaga já está ocupada.');
+    if (!vagaSelecionada) {
+      Alert.alert('Erro', 'Selecione uma vaga.');
       return;
     }
 
-    lista.push(novaMoto);
-    await AsyncStorage.setItem('motos', JSON.stringify(lista));
+    const novaMoto = {
+      tipo: 'Entrada',
+      placa: placa.trim() || 'Sem placa',
+      vaga: vagaSelecionada,
+      dataHora: new Date().toISOString().slice(0, 16).replace("T", " "), 
+      usuarioRM: userRM,
+    };
 
-    setPlaca('');
-    setVagaSelecionada(vagasSetorA[0]);
-    Alert.alert('Sucesso', 'Moto cadastrada com sucesso!');
+    try {
+      const dados = await AsyncStorage.getItem('motos');
+      const lista = dados ? JSON.parse(dados) : [];
+
+      const vagaOcupada = lista.some((m) => m.vaga === vagaSelecionada);
+      if (vagaOcupada) {
+        Alert.alert('Erro', 'Essa vaga já está ocupada.');
+        return;
+      }
+
+      lista.push(novaMoto);
+      await AsyncStorage.setItem('motos', JSON.stringify(lista));
+
+      setPlaca('');
+      setVagaSelecionada(vagasSetorA[0]);
+      Alert.alert('Sucesso', 'Moto cadastrada com sucesso!');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar o cadastro.');
+    }
   };
 
   return (
@@ -43,6 +54,7 @@ export default function CadastroScreen() {
         onChangeText={setPlaca}
         placeholder="Digite a placa (ou deixe em branco)"
         style={styles.input}
+        placeholderTextColor="#888"
       />
 
       <Text style={styles.label}>Vaga</Text>
@@ -57,7 +69,9 @@ export default function CadastroScreen() {
         </Picker>
       </View>
 
-      <Button title="Cadastrar" onPress={handleCadastro} color="#4CAF50" />
+      <TouchableOpacity style={styles.button} onPress={handleCadastro}>
+        <Text style={styles.buttonText}>Cadastrar</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -65,30 +79,43 @@ export default function CadastroScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor:'#fff',
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
+    
     fontWeight: 'bold',
     marginBottom: 20,
+    textAlign: 'center',
   },
   label: {
     marginTop: 10,
     fontSize: 16,
+    color: '#0E1B35',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#999',
+    backgroundColor: '#fff',
     borderRadius: 6,
     padding: 10,
     marginTop: 5,
   },
   pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#999',
+    backgroundColor: '#fff',
     borderRadius: 6,
     marginTop: 5,
     marginBottom: 15,
+  },
+  button: {
+    backgroundColor: '#C1FF4D',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#0E1B35',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
