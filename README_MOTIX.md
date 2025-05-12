@@ -51,7 +51,7 @@ npm install -g expo-cli
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/klebers022/motix.git
+git clone https://github.com/klebers022/motix-app.git
 
 # 2. Acesse a pasta do projeto
 cd projeto-motix
