@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 const vagasSetorA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'];
 
 export default function CadastroMotoScreen({ userRM }) {
   const [placa, setPlaca] = useState('');
   const [vagaSelecionada, setVagaSelecionada] = useState(vagasSetorA[0]);
+  const { theme } = useContext(ThemeContext);
 
   const handleCadastro = async () => {
     if (!vagaSelecionada) {
@@ -45,20 +47,20 @@ export default function CadastroMotoScreen({ userRM }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Cadastro de Moto</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Cadastro de Moto</Text>
 
-      <Text style={styles.label}>Placa</Text>
+      <Text style={[styles.label, { color: theme.text }]}>Placa</Text>
       <TextInput
         value={placa}
         onChangeText={setPlaca}
         placeholder="Digite a placa (ou deixe em branco)"
-        style={styles.input}
-        placeholderTextColor="#888"
+        style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
+        placeholderTextColor={theme.text}
       />
 
-      <Text style={styles.label}>Vaga</Text>
-      <View style={styles.pickerWrapper}>
+      <Text style={[styles.label, { color: theme.text }]}>Vaga</Text>
+      <View style={[styles.pickerWrapper, { backgroundColor: theme.inputBackground }]}>
         <Picker
           selectedValue={vagaSelecionada}
           onValueChange={(itemValue) => setVagaSelecionada(itemValue)}
@@ -69,8 +71,8 @@ export default function CadastroMotoScreen({ userRM }) {
         </Picker>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleCadastro}>
-        <Text style={styles.buttonText}>Cadastrar</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={handleCadastro}>
+        <Text style={[styles.buttonText, { color: theme.background }]}>Cadastrar</Text>
       </TouchableOpacity>
     </View>
   );
@@ -79,12 +81,10 @@ export default function CadastroMotoScreen({ userRM }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor:'#fff',
     padding: 20,
   },
   title: {
     fontSize: 24,
-    
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
@@ -92,29 +92,24 @@ const styles = StyleSheet.create({
   label: {
     marginTop: 10,
     fontSize: 16,
-    color: '#0E1B35',
   },
   input: {
-    backgroundColor: '#fff',
     borderRadius: 6,
     padding: 10,
     marginTop: 5,
   },
   pickerWrapper: {
-    backgroundColor: '#fff',
     borderRadius: 6,
     marginTop: 5,
     marginBottom: 15,
   },
   button: {
-    backgroundColor: '#C1FF4D',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   buttonText: {
-    color: '#0E1B35',
     fontWeight: 'bold',
     fontSize: 16,
   },

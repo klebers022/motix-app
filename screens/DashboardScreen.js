@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useEffect, useState, useContext } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 const vagasSetorA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'];
 
 export default function DashboardScreen() {
   const [motos, setMotos] = useState([]);
-  
+  const { theme } = useContext(ThemeContext);
+
   useEffect(() => {
     const fetchData = async () => {
       const dados = await AsyncStorage.getItem('motos');
@@ -28,26 +30,29 @@ export default function DashboardScreen() {
   const contarVagasDisponiveis = () => vagasSetorA.filter((v) => !motos.some((m) => m.vaga === v)).length;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Dashboard</Text>
+      
 
       <View style={styles.cardContainer}>
-        <InfoCard label="Total de Motos" value={contarTotal()} />
-        <InfoCard label="Motos sem placas" value={contarSemPlaca()} color="red" />
-        <InfoCard label="Espaços disponíveis" value={contarVagasDisponiveis()} color="green" />
+        <InfoCard label="Total de Motos" value={contarTotal()} color={theme.text} />
+        <InfoCard label="Motos sem placas" value={contarSemPlaca()} color="#F44336" />
+        <InfoCard label="Espaços disponíveis" value={contarVagasDisponiveis()} color="#4CAF50" />
       </View>
 
-      <Text style={styles.setorTitle}>Setor A</Text>
+      <Text style={[styles.setorTitle, { color: theme.text }]}>Setor A</Text>
       <View style={styles.grid}>
         {vagasSetorA.map((vaga, idx) => {
           const status = getStatusVaga(vaga);
+          let vagaColor = styles[status]?.backgroundColor || theme.primary;
           return (
-            <View key={idx} style={[styles.vaga, styles[status]]}>
+            <View key={idx} style={[styles.vaga, { backgroundColor: vagaColor }]}>
               <Text style={styles.vagaText}>{vaga}</Text>
             </View>
           );
         })}
       </View>
+     
     </View>
   );
 }
@@ -63,7 +68,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
@@ -110,7 +114,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F44336',
   },
   empty: {
-    
     backgroundColor: '#4CAF50',
   },
 });
