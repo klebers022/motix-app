@@ -1,119 +1,337 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemeContext } from '../contexts/ThemeContext';
+import React, { useEffect, useState, useContext, useCallback, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { ThemeContext } from "../contexts/ThemeContext";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-const vagasSetorA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9'];
+// mapa de setores (mesmas quantidades do resto do app)
+const VAGAS_MAP = {
+  A: Array.from({ length: 9 }, (_, i) => `A${i + 1}`),
+  B: Array.from({ length: 9 }, (_, i) => `B${i + 1}`),
+  C: Array.from({ length: 9 }, (_, i) => `C${i + 1}`),
+  D: Array.from({ length: 9 }, (_, i) => `D${i + 1}`),
+};
 
 export default function DashboardScreen() {
-  const [motos, setMotos] = useState([]);
   const { theme } = useContext(ThemeContext);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const dados = await AsyncStorage.getItem('motos');
+  const [motos, setMotos] = useState([]);
+  const [setor, setSetor] = useState("A");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const vagasSetor = useMemo(() => VAGAS_MAP[setor] || [], [setor]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const dados = await AsyncStorage.getItem("motos");
       const lista = dados ? JSON.parse(dados) : [];
       setMotos(lista);
-    };
-    fetchData();
+      setLastUpdated(new Date());
+    } catch (e) {
+      // falha silenciosa; poderia exibir toast/alert
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
-  const getStatusVaga = (vaga) => {
-    const moto = motos.find((m) => m.vaga === vaga);
-    if (!moto) return 'empty';
-    if (!moto.placa || moto.placa.trim() === '') return 'noplate';
-    return 'occupied';
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // recarrega sempre que a tela ganhar foco
+      carregar();
+    }, [carregar])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    carregar();
   };
 
-  const contarTotal = () => motos.length;
-  const contarSemPlaca = () => motos.filter((m) => !m.placa || m.placa.trim() === '').length;
-  const contarVagasDisponiveis = () => vagasSetorA.filter((v) => !motos.some((m) => m.vaga === v)).length;
+  // status por vaga no setor atual
+  const getStatusVaga = (vaga) => {
+    // encontra um registro para essa vaga; se você passar a registrar Saída, pode pegar o último por data
+    const moto = motos.find((m) => m.vaga === vaga && (m?.tipo || "Entrada").toLowerCase() === "entrada");
+    if (!moto) return "empty";
+    if (!moto.placa || moto.placa.trim() === "") return "noplate";
+    return "occupied";
+  };
+
+  // métricas (no setor atual)
+  const totalMotosSetor = motos.filter((m) => (m.vaga || "").startsWith(setor)).length;
+  const semPlacaSetor = motos.filter(
+    (m) => (m.vaga || "").startsWith(setor) && (!m.placa || m.placa.trim() === "")
+  ).length;
+  const vagasDisponiveis = vagasSetor.filter((v) => !motos.some((m) => m.vaga === v && (m?.tipo || "Entrada").toLowerCase() === "entrada")).length;
+
+  // UI Components
+  const Header = () => (
+    <View style={styles(theme).header}>
+      <View style={styles(theme).headerLeft}>
+        <Ionicons name="speedometer" size={22} color={theme.primary} />
+        <Text style={styles(theme).title}>Dashboard</Text>
+      </View>
+      <Text style={styles(theme).subtitle}>Visão geral de ocupação</Text>
+      {lastUpdated && (
+        <Text style={styles(theme).lastUpdated}>
+          Atualizado: {lastUpdated.toLocaleTimeString()}
+        </Text>
+      )}
+    </View>
+  );
+
+  const SectorTabs = () => (
+    <View style={styles(theme).tabs}>
+      {["A", "B", "C", "D"].map((s) => {
+        const active = setor === s;
+        return (
+          <TouchableOpacity
+            key={s}
+            onPress={() => setSetor(s)}
+            style={[
+              styles(theme).tab,
+              active && { backgroundColor: theme.primary, borderColor: theme.primary },
+            ]}
+          >
+            <Text style={[styles(theme).tabText, active && { color: theme.background, fontWeight: "800" }]}>
+              Setor {s}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const StatCard = ({ icon, label, value, accent = theme.text }) => (
+    <View style={styles(theme).statCard}>
+      <View style={styles(theme).statLeft}>
+        {icon}
+        <Text style={styles(theme).statLabel}>{label}</Text>
+      </View>
+      <Text style={[styles(theme).statValue, { color: accent }]}>{value}</Text>
+    </View>
+  );
+
+  const Legend = () => (
+    <View style={styles(theme).legendRow}>
+      <View style={styles(theme).legendItem}>
+        <View style={[styles(theme).legendDot, { backgroundColor: "#4CAF50" }]} />
+        <Text style={styles(theme).legendText}>Livre</Text>
+      </View>
+      <View style={styles(theme).legendItem}>
+        <View style={[styles(theme).legendDot, { backgroundColor: "#9E9E9E" }]} />
+        <Text style={styles(theme).legendText}>Ocupada</Text>
+      </View>
+      <View style={styles(theme).legendItem}>
+        <View style={[styles(theme).legendDot, { backgroundColor: "#F44336" }]} />
+        <Text style={styles(theme).legendText}>Sem placa</Text>
+      </View>
+    </View>
+  );
+
+  const Vaga = ({ vaga }) => {
+    const status = getStatusVaga(vaga);
+    let color = "#4CAF50"; // livre
+    if (status === "occupied") color = "#9E9E9E";
+    if (status === "noplate") color = "#F44336";
+
+    return (
+      <View style={[styles(theme).vaga, { backgroundColor: color }]}>
+        <Text style={styles(theme).vagaText}>{vaga}</Text>
+      </View>
+    );
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Dashboard</Text>
-      
+    <View style={styles(theme).container}>
+      <Header />
+      <SectorTabs />
 
-      <View style={styles.cardContainer}>
-        <InfoCard label="Total de Motos" value={contarTotal()} color={theme.text} />
-        <InfoCard label="Motos sem placas" value={contarSemPlaca()} color="#F44336" />
-        <InfoCard label="Espaços disponíveis" value={contarVagasDisponiveis()} color="#4CAF50" />
+      {/* Cards de métricas */}
+      <View style={styles(theme).statsGrid}>
+        <StatCard
+          icon={<Ionicons name="bicycle" size={18} color={theme.primary} />}
+          label={`Motos no setor ${setor}`}
+          value={totalMotosSetor}
+          accent={theme.text}
+        />
+        <StatCard
+          icon={<MaterialCommunityIcons name="identifier" size={18} color="#F44336" />}
+          label="Sem placa"
+          value={semPlacaSetor}
+          accent="#F44336"
+        />
+        <StatCard
+          icon={<Ionicons name="checkmark-done" size={18} color="#4CAF50" />}
+          label="Vagas livres"
+          value={vagasDisponiveis}
+          accent="#4CAF50"
+        />
       </View>
 
-      <Text style={[styles.setorTitle, { color: theme.text }]}>Setor A</Text>
-      <View style={styles.grid}>
-        {vagasSetorA.map((vaga, idx) => {
-          const status = getStatusVaga(vaga);
-          let vagaColor = styles[status]?.backgroundColor || theme.primary;
-          return (
-            <View key={idx} style={[styles.vaga, { backgroundColor: vagaColor }]}>
-              <Text style={styles.vagaText}>{vaga}</Text>
-            </View>
-          );
-        })}
-      </View>
-     
+      <Legend />
+
+      {/* Grade de vagas */}
+      <FlatList
+        data={vagasSetor}
+        numColumns={3}
+        keyExtractor={(item) => item}
+        columnWrapperStyle={{ gap: 10 }}
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 24 }}
+        renderItem={({ item }) => <Vaga vaga={item} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+        }
+        ListFooterComponent={
+          <View style={styles(theme).footerHint}>
+            <Ionicons name="information-circle-outline" size={16} color={theme.text + "88"} />
+            <Text style={styles(theme).footerHintText}>
+              A ocupação considera entradas registradas. Se você registrar “Saída”, ajuste a lógica para considerar o último evento por vaga.
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 }
 
-const InfoCard = ({ label, value, color = '#000' }) => (
-  <View style={styles.card}>
-    <Text>{label}</Text>
-    <Text style={{ color, fontWeight: 'bold' }}>{value}</Text>
-  </View>
-);
+const styles = (theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      padding: 16,
+    },
+    header: {
+      marginBottom: 8,
+    },
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: "800",
+      color: theme.text,
+    },
+    subtitle: {
+      color: theme.text + "99",
+      marginBottom: 4,
+    },
+    lastUpdated: {
+      color: theme.text + "66",
+      fontSize: 12,
+    },
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  cardContainer: {
-    marginBottom: 30,
-  },
-  card: {
-    backgroundColor: '#f2f2f2',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  setorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  vaga: {
-    width: 80,
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 5,
-  },
-  vagaText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  occupied: {
-    backgroundColor: '#9E9E9E',
-  },
-  noplate: {
-    backgroundColor: '#F44336',
-  },
-  empty: {
-    backgroundColor: '#4CAF50',
-  },
-});
+    tabs: {
+      flexDirection: "row",
+      gap: 8,
+      marginVertical: 12,
+    },
+    tab: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 999,
+      backgroundColor: theme.inputBackground,
+      borderWidth: 1,
+      borderColor: theme.text + "22",
+    },
+    tabText: {
+      color: theme.text,
+      fontWeight: "600",
+      fontSize: 12,
+      letterSpacing: 0.2,
+    },
+
+    statsGrid: {
+      gap: 10,
+      marginBottom: 8,
+    },
+    statCard: {
+      backgroundColor: theme.inputBackground,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: theme.text + "10",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    statLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    statLabel: {
+      color: theme.text,
+      fontWeight: "600",
+    },
+    statValue: {
+      fontWeight: "900",
+      fontSize: 18,
+      letterSpacing: 0.3,
+    },
+
+    legendRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    legendDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    legendText: {
+      color: theme.text,
+      fontSize: 12,
+    },
+
+    vaga: {
+      flex: 1,
+      minWidth: 90,
+      height: 56,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    vagaText: {
+      color: "#ffffff",
+      fontWeight: "800",
+      letterSpacing: 0.3,
+    },
+
+    footerHint: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 6,
+    },
+    footerHintText: {
+      color: theme.text + "88",
+      fontSize: 12,
+      flex: 1,
+    },
+  });

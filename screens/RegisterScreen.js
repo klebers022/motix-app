@@ -23,40 +23,56 @@ export default function RegisterScreen({ onRegisterSuccess }) {
   const handleRegister = async () => {
     console.log("Botão pressionado!");
     console.log("Tentando cadastro com:", email);
+
     if (senha !== confirmSenha) {
       Alert.alert("Erro", "As senhas não coincidem.");
       return;
     }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        email,
+        email.trim(),
         senha
       );
       const user = userCredential.user;
       console.log("Cadastro bem-sucedido:", user.uid);
-      Alert.alert("Sucesso", "Usuário cadastrado com sucesso!");
-      onRegisterSuccess?.(user);
-      navigation.navigate("Dashboard");
+
+      // ✅ Deixa o Root (App.js) alternar de AuthStack -> Drawer automaticamente
+      onRegisterSuccess && onRegisterSuccess({
+        uid: user.uid,
+        email: user.email,
+      });
+
+      // ❌ NÃO navegue manualmente daqui (essa tela está no AuthStack)
+      // navigation.navigate("Dashboard");
+      // navigation.replace("Dashboard");
+
+      // (Opcional) feedback:
+      // Alert.alert("Sucesso", "Conta criada! Abrindo o app...");
+
     } catch (error) {
       console.error("Erro no cadastro:", error);
-      Alert.alert("Erro", error.message);
+      Alert.alert("Erro", error?.message || "Não foi possível cadastrar.");
     }
   };
 
+  const goToLogin = () => navigation.navigate("Login");
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Botão para voltar ao Login */}
+      <TouchableOpacity style={styles.backBtn} onPress={goToLogin}>
+        <Ionicons name="arrow-back" size={22} color={theme.text} />
+        <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
+      </TouchableOpacity>
+
       <Text style={[styles.logo, { color: theme.text }]}>
         MOTI<Text style={{ color: theme.primary }}>X</Text> - Cadastro
       </Text>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons
-          name="mail-outline"
-          size={20}
-          color={theme.text}
-          style={styles.icon}
-        />
+        <Ionicons name="mail-outline" size={20} color={theme.text} style={styles.icon} />
         <TextInput
           placeholder="Email"
           style={[styles.input, { color: theme.text }]}
@@ -69,12 +85,7 @@ export default function RegisterScreen({ onRegisterSuccess }) {
       </View>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons
-          name="lock-closed-outline"
-          size={20}
-          color={theme.text}
-          style={styles.icon}
-        />
+        <Ionicons name="lock-closed-outline" size={20} color={theme.text} style={styles.icon} />
         <TextInput
           placeholder="Senha"
           style={[styles.input, { color: theme.text }]}
@@ -86,12 +97,7 @@ export default function RegisterScreen({ onRegisterSuccess }) {
       </View>
 
       <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons
-          name="lock-closed-outline"
-          size={20}
-          color={theme.text}
-          style={styles.icon}
-        />
+        <Ionicons name="lock-closed-outline" size={20} color={theme.text} style={styles.icon} />
         <TextInput
           placeholder="Confirmar Senha"
           style={[styles.input, { color: theme.text }]}
@@ -113,19 +119,21 @@ export default function RegisterScreen({ onRegisterSuccess }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 30,
+  container: { flex: 1, justifyContent: "center", paddingHorizontal: 30 },
+  backBtn: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 6,
   },
+  backText: { marginLeft: 6, fontSize: 16 },
   logo: {
     fontSize: 30,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 40,
-  },
-  logoHighlight: {
-    color: "#B6FF00",
   },
   inputContainer: {
     flexDirection: "row",
@@ -134,22 +142,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 15,
   },
-  icon: {
-    marginRight: 5,
-  },
-  input: {
-    flex: 1,
-    height: 50,
-  },
+  icon: { marginRight: 5 },
+  input: { flex: 1, height: 50 },
   button: {
     paddingVertical: 15,
     borderRadius: 10,
     marginTop: 10,
     alignItems: "center",
   },
-  buttonText: {
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  buttonText: { textAlign: "center", fontWeight: "bold", fontSize: 16 },
 });

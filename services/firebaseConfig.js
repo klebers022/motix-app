@@ -1,6 +1,7 @@
+// src/services/firebaseConfig.js
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getAuth } from "firebase/auth"; // ADICIONE ESTA LINHA
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCoIqo1CPjTBHmwgK2RlPmD6Lhy3RpNWsw",
@@ -9,11 +10,14 @@ const firebaseConfig = {
   storageBucket: "motix-e1d90.firebasestorage.app",
   messagingSenderId: "757932393161",
   appId: "1:757932393161:web:d6bcaec4cf1bfa510c4318",
-  measurementId: "G-8DDYQT1YFV"
+  measurementId: "G-8DDYQT1YFV",
 };
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth(app); // ADICIONE ESTA LINHA
+export const app = initializeApp(firebaseConfig);
 
-export { auth }; // ADICIONE ESTA LINHA
+// ✅ Importante no React Native: initializeAuth + persistência nativa
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
+// ❌ Não use getAnalytics no mobile
