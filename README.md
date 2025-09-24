@@ -82,16 +82,23 @@ A aplicação utiliza autenticação fixa para fins de prototipagem. Os seguinte
 ## 📂 Estrutura de Pastas
 
 ```
-motix/
-├── App.js
+motix-app/
+├── assets/
+├── components/
+    ├── CustomDrawerContent.js
+├── contexts/
+    ├── ThemeContext.js/
 ├── screens/
 │   ├── LoginScreen.js
 │   ├── DashboardScreen.js
 │   ├── CadastroMotoScreen.js
+    ├── RegisterScreen.js
 │   ├── RelatorioScreen.js
-├── components/
-│   └── CustomDrawerContent.js
-├── assets/
+├── services/
+│   └── firebaseConfig.js
+├── App.js
+├── App.jason
+├── index.js
 └── README.md
 ```
 
