@@ -7,107 +7,159 @@ import {
   Alert,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../contexts/ThemeContext";
+import uuid from "react-native-uuid";
 
-// Mapeia vagas por setor (fácil expandir depois)
-const VAGAS_MAP = {
-  A: Array.from({ length: 9 }, (_, i) => `A${i + 1}`),
-  B: Array.from({ length: 9 }, (_, i) => `B${i + 1}`),
-  C: Array.from({ length: 9 }, (_, i) => `C${i + 1}`),
-  D: Array.from({ length: 9 }, (_, i) => `D${i + 1}`),
-};
+// === IMPORTES DA API (.NET) ===
+import { listSectors } from "../services/api/sectors";
+import { listMotorcycles, createMotorcycle } from "../services/api/motorcycles";
+import { createMovement } from "../services/api/movements";
+
+/**
+ * ASSUMPTIONS IMPORTANTES:
+ * - /api/sectors => [{ id: Guid, code: "A1" | "B7" | ... }]
+ * - /api/motorcycles => [{ motorcycleId: Guid, sectorId: Guid, ... }]
+ * - POST /api/motorcycles { motorcycleId, sectorId } cria a moto no setor atual
+ * - (opcional) POST /api/movements { motorcycleId, sectorId } registra movimento
+ *
+ * Se sua API usa nomes diferentes (Id/sectorCode etc.), ajuste nos pontos marcados.
+ */
 
 export default function CadastroMotoScreen({ userRM }) {
   const { theme } = useContext(ThemeContext);
 
-  const [setor, setSetor] = useState("A");
+  // estado de UI
+  const [setor, setSetor] = useState("A");           // A | B | C | D (prefixo)
   const [placa, setPlaca] = useState("");
-  const [vagaSelecionada, setVagaSelecionada] = useState(null);
-  const [ocupadas, setOcupadas] = useState(new Set()); // controla vagas ocupadas do setor atual
+  const [vagaSelecionada, setVagaSelecionada] = useState(null); // guarda o CODE, ex "A3"
   const [loading, setLoading] = useState(false);
 
-  // Vagas do setor atual
-  const vagasDoSetor = useMemo(() => VAGAS_MAP[setor] ?? [], [setor]);
+  // dados vindos do backend
+  const [sectors, setSectors] = useState([]);        // lista completa de setores
+  const [motorcycles, setMotorcycles] = useState([]);// lista de motos (para ocupação)
 
+  // dicionários de apoio
+  const sectorByCode = useMemo(() => {
+    const map = new Map();
+    for (const s of sectors) {
+      // AJUSTE: se o campo for S.name em vez de S.code, troque aqui
+      map.set(s.code, s);
+    }
+    return map;
+  }, [sectors]);
+
+  const sectorById = useMemo(() => {
+    const map = new Map();
+    for (const s of sectors) {
+      // AJUSTE: se o ID vier como s.sectorId, troque aqui
+      map.set(s.id || s.sectorId, s);
+    }
+    return map;
+  }, [sectors]);
+
+  // agrupa visualmente: vagas do setor atual (filtra por prefixo "A", "B", "C", "D")
+  const vagasDoSetor = useMemo(() => {
+    return sectors
+      .map(s => s.code)
+      .filter(code => typeof code === "string" && code.startsWith(setor))
+      // ordena "A1..A9" certinho: extrai número no fim, fallback por string
+      .sort((a, b) => {
+        const na = parseInt(a.slice(1), 10);
+        const nb = parseInt(b.slice(1), 10);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+        return a.localeCompare(b);
+      });
+  }, [sectors, setor]);
+
+  // calcula ocupadas a partir das motos (sectorId -> code)
+  const ocupadas = useMemo(() => {
+    const set = new Set();
+    for (const m of motorcycles) {
+      const s = sectorById.get(m.sectorId);
+      if (s?.code) set.add(s.code);
+    }
+    return set;
+  }, [motorcycles, sectorById]);
+
+  // carregar dados iniciais
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [secs, motos] = await Promise.all([
+        listSectors(),
+        listMotorcycles()
+      ]);
+      setSectors(Array.isArray(secs) ? secs : []);
+      setMotorcycles(Array.isArray(motos) ? motos : []);
+    } catch (e) {
+      Alert.alert("Erro", e?.message || "Falha ao carregar dados do servidor.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadAll(); }, []);
+
+  // sempre que mudar o prefixo (A/B/C/D), limpa seleção
   useEffect(() => {
-    // ao trocar setor, limpa seleção e recarrega ocupação
     setVagaSelecionada(null);
-    carregarOcupacao();
   }, [setor]);
 
-  useEffect(() => {
-    // carrega na primeira renderização
-    carregarOcupacao();
-  }, []);
-
-  const carregarOcupacao = async () => {
-    try {
-      const dados = await AsyncStorage.getItem("motos");
-      const lista = dados ? JSON.parse(dados) : [];
-      // considera ocupada a vaga que tem último registro como "Entrada"
-      // (se você tiver 'Saída' depois, pode filtrar pela última ocorrência)
-      const ocupadasSet = new Set(
-        lista
-          .filter((m) => (m?.vaga || "").startsWith(setor) && (m?.tipo || "Entrada").toLowerCase() === "entrada")
-          .map((m) => m.vaga)
-      );
-      setOcupadas(ocupadasSet);
-    } catch (e) {
-      // Se falhar, apenas não marca ocupadas
-      setOcupadas(new Set());
-    }
-  };
-
-  const handleCadastro = async () => {
+  async function handleCadastro() {
     if (!vagaSelecionada) {
       Alert.alert("Ops", "Selecione uma vaga livre antes de cadastrar.");
       return;
     }
-
     if (ocupadas.has(vagaSelecionada)) {
       Alert.alert("Ops", "Essa vaga está ocupada. Escolha outra vaga.");
       return;
     }
 
-    const novaMoto = {
-      tipo: "Entrada",
-      placa: (placa || "").trim().toUpperCase() || "Sem placa",
-      vaga: vagaSelecionada,
-      dataHora: new Date().toISOString().slice(0, 16).replace("T", " "),
-      usuarioRM: userRM ?? null,
-    };
+    // pega o setor escolhido pelo CODE (ex: "A3") -> id (Guid) para enviar à API
+    const sector = sectorByCode.get(vagaSelecionada);
+    if (!sector) {
+      Alert.alert("Erro", "Setor selecionado não encontrado.");
+      return;
+    }
 
+    // AJUSTE: se seu ID do setor vier como sector.sectorId, troque abaixo
+    const sectorId = sector.id || sector.sectorId;
+    if (!sectorId) {
+      Alert.alert("Erro", "Setor sem ID válido.");
+      return;
+    }
+
+    // gera um novo GUID para a moto (se o backend não gerar)
+    const motorcycleId = uuid.v4();
+
+    setLoading(true);
     try {
-      setLoading(true);
-      const dados = await AsyncStorage.getItem("motos");
-      const lista = dados ? JSON.parse(dados) : [];
+      // cria a moto já alocada no setor escolhido
+      await createMotorcycle({ motorcycleId, sectorId });
 
-      // Segurança extra: não duplica vaga
-      const jaOcupada = lista.some((m) => m.vaga === vagaSelecionada && (m?.tipo || "Entrada").toLowerCase() === "entrada");
-      if (jaOcupada) {
-        Alert.alert("Ops", "Essa vaga acabou de ser ocupada. Escolha outra.");
-        await carregarOcupacao();
-        return;
+      // opcional: registrar também o movimento inicial
+      try {
+        await createMovement({ motorcycleId, sectorId });
+      } catch (_) {
+        // silencioso: se sua API já registra o movimento ao criar,
+        // esse POST pode falhar por duplicidade — ignoramos.
       }
 
-      lista.push(novaMoto);
-      await AsyncStorage.setItem("motos", JSON.stringify(lista));
-
-      // Atualiza UI
+      // refresh
+      await loadAll();
       setPlaca("");
       setVagaSelecionada(null);
-      await carregarOcupacao();
 
       Alert.alert("Sucesso", "Moto cadastrada com sucesso!");
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar o cadastro.");
+    } catch (e) {
+      Alert.alert("Erro ao cadastrar", e?.message || "Falha ao enviar para o servidor.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const limpar = () => {
     setPlaca("");
@@ -201,6 +253,15 @@ export default function CadastroMotoScreen({ userRM }) {
     );
   };
 
+  if (loading && sectors.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 8, color: theme.text }}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles(theme).container}>
       <SecaoTitulo />
@@ -232,6 +293,11 @@ export default function CadastroMotoScreen({ userRM }) {
           contentContainerStyle={{ paddingVertical: 6 }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => <VagaItem vaga={item} />}
+          ListEmptyComponent={
+            <Text style={{ color: theme.text + "99", marginTop: 8 }}>
+              Nenhuma vaga cadastrada no setor {setor}.
+            </Text>
+          }
         />
 
         <View style={styles(theme).actionsRow}>
@@ -247,7 +313,7 @@ export default function CadastroMotoScreen({ userRM }) {
           <TouchableOpacity
             onPress={handleCadastro}
             style={[styles(theme).btnPrimary]}
-            disabled={loading}
+            disabled={loading || !vagaSelecionada}
           >
             <Ionicons name="save-outline" size={18} color={theme.background} />
             <Text style={styles(theme).btnPrimaryText}>
@@ -268,9 +334,7 @@ const styles = (theme) =>
       backgroundColor: theme.background,
       padding: 16,
     },
-    headerWrap: {
-      marginBottom: 8,
-    },
+    headerWrap: { marginBottom: 8 },
     titleRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -352,11 +416,7 @@ const styles = (theme) =>
       borderColor: theme.text + "22",
       height: 44,
     },
-    input: {
-      flex: 1,
-      color: theme.text,
-      height: 44,
-    },
+    input: { flex: 1, color: theme.text, height: 44 },
 
     vagaCard: {
       flex: 1,
@@ -369,15 +429,8 @@ const styles = (theme) =>
       borderWidth: 1,
       borderColor: theme.text + "22",
     },
-    vagaOcupada: {
-      backgroundColor: theme.background,
-      opacity: 0.7,
-    },
-    vagaText: {
-      color: theme.text,
-      fontWeight: "700",
-      marginBottom: 6,
-    },
+    vagaOcupada: { backgroundColor: theme.background, opacity: 0.7 },
+    vagaText: { color: theme.text, fontWeight: "700", marginBottom: 6 },
     vagaBadge: (isOcupada) => ({
       flexDirection: "row",
       alignItems: "center",

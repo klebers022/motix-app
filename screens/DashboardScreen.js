@@ -6,40 +6,87 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-// mapa de setores (mesmas quantidades do resto do app)
-const VAGAS_MAP = {
-  A: Array.from({ length: 9 }, (_, i) => `A${i + 1}`),
-  B: Array.from({ length: 9 }, (_, i) => `B${i + 1}`),
-  C: Array.from({ length: 9 }, (_, i) => `C${i + 1}`),
-  D: Array.from({ length: 9 }, (_, i) => `D${i + 1}`),
-};
+// === IMPORTES DA API (.NET) ===
+import { listSectors } from "../services/api/sectors";
+import { listMotorcycles } from "../services/api/motorcycles";
+
+/**
+ * ASSUMPTIONS:
+ * - Sector: { id: Guid, code: "A1" | "B3" | ... }   // AJUSTE se seu backend usa sectorId ou outro nome
+ * - Motorcycle: { motorcycleId: Guid, sectorId: Guid, ... }
+ * - /api/sectors lista todos os setores (A1..D9)
+ * - /api/motorcycles lista todas as motos ativas (ou atuais)
+ */
 
 export default function DashboardScreen() {
   const { theme } = useContext(ThemeContext);
 
-  const [motos, setMotos] = useState([]);
-  const [setor, setSetor] = useState("A");
+  const [setor, setSetor] = useState("A"); // A | B | C | D
+  const [sectors, setSectors] = useState([]);
+  const [motorcycles, setMotorcycles] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const vagasSetor = useMemo(() => VAGAS_MAP[setor] || [], [setor]);
+  // dicionários auxiliares
+  const sectorById = useMemo(() => {
+    const map = new Map();
+    for (const s of sectors) {
+      map.set(s.id || s.sectorId, s); // AJUSTE se o ID do setor vier como sector.sectorId
+    }
+    return map;
+  }, [sectors]);
 
+  const sectorByCode = useMemo(() => {
+    const map = new Map();
+    for (const s of sectors) {
+      map.set(s.code, s); // AJUSTE se o campo do código tiver outro nome
+    }
+    return map;
+  }, [sectors]);
+
+  // lista das vagas do setor selecionado (filtra pelo prefixo A/B/C/D)
+  const vagasSetor = useMemo(() => {
+    return sectors
+      .map(s => s.code)
+      .filter(code => typeof code === "string" && code.startsWith(setor))
+      .sort((a, b) => {
+        const na = parseInt(a.slice(1), 10);
+        const nb = parseInt(b.slice(1), 10);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+        return a.localeCompare(b);
+      });
+  }, [sectors, setor]);
+
+  // set de vagas ocupadas (codes) com base nas motos atuais
+  const ocupadasSet = useMemo(() => {
+    const set = new Set();
+    for (const m of motorcycles) {
+      const sec = sectorById.get(m.sectorId);
+      if (sec?.code) set.add(sec.code);
+    }
+    return set;
+  }, [motorcycles, sectorById]);
+
+  // buscar dados da API
   const carregar = useCallback(async () => {
     try {
-      const dados = await AsyncStorage.getItem("motos");
-      const lista = dados ? JSON.parse(dados) : [];
-      setMotos(lista);
+      const [secs, motos] = await Promise.all([listSectors(), listMotorcycles()]);
+      setSectors(Array.isArray(secs) ? secs : []);
+      setMotorcycles(Array.isArray(motos) ? motos : []);
       setLastUpdated(new Date());
     } catch (e) {
-      // falha silenciosa; poderia exibir toast/alert
+      // você pode trocar por um toast/alert se preferir
+      console.warn("Falha ao carregar dados:", e?.message || e);
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
@@ -49,7 +96,6 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // recarrega sempre que a tela ganhar foco
       carregar();
     }, [carregar])
   );
@@ -60,20 +106,41 @@ export default function DashboardScreen() {
   };
 
   // status por vaga no setor atual
-  const getStatusVaga = (vaga) => {
-    // encontra um registro para essa vaga; se você passar a registrar Saída, pode pegar o último por data
-    const moto = motos.find((m) => m.vaga === vaga && (m?.tipo || "Entrada").toLowerCase() === "entrada");
-    if (!moto) return "empty";
-    if (!moto.placa || moto.placa.trim() === "") return "noplate";
+  const getStatusVaga = (vagaCode) => {
+    // ocupada se existir alguma moto cujo sectorId mapeie para esse code
+    const ocupada = ocupadasSet.has(vagaCode);
+    if (!ocupada) return "empty";
+
+    // se seu backend não possui "placa", mantenha como "occupied".
+    // Caso venha uma propriedade opcional "placa" na Motorcycle, você pode checar:
+    const sec = sectorByCode.get(vagaCode);
+    const moto = motorcycles.find(m => m.sectorId === (sec?.id || sec?.sectorId));
+    if (moto && (!moto.placa || String(moto.placa).trim() === "")) return "noplate";
+
     return "occupied";
   };
 
   // métricas (no setor atual)
-  const totalMotosSetor = motos.filter((m) => (m.vaga || "").startsWith(setor)).length;
-  const semPlacaSetor = motos.filter(
-    (m) => (m.vaga || "").startsWith(setor) && (!m.placa || m.placa.trim() === "")
-  ).length;
-  const vagasDisponiveis = vagasSetor.filter((v) => !motos.some((m) => m.vaga === v && (m?.tipo || "Entrada").toLowerCase() === "entrada")).length;
+  const totalMotosSetor = useMemo(() => {
+    const idsDoSetor = new Set(
+      sectors.filter(s => s.code?.startsWith(setor)).map(s => s.id || s.sectorId)
+    );
+    return motorcycles.filter(m => idsDoSetor.has(m.sectorId)).length;
+  }, [sectors, motorcycles, setor]);
+
+  const semPlacaSetor = useMemo(() => {
+    // se sua API não envia placa, isso sempre será 0
+    const idsDoSetor = new Set(
+      sectors.filter(s => s.code?.startsWith(setor)).map(s => s.id || s.sectorId)
+    );
+    return motorcycles.filter(m =>
+      idsDoSetor.has(m.sectorId) && (!m.placa || String(m.placa).trim() === "")
+    ).length;
+  }, [sectors, motorcycles, setor]);
+
+  const vagasDisponiveis = useMemo(() => {
+    return vagasSetor.filter(code => !ocupadasSet.has(code)).length;
+  }, [vagasSetor, ocupadasSet]);
 
   // UI Components
   const Header = () => (
@@ -153,6 +220,15 @@ export default function DashboardScreen() {
     );
   };
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 8, color: theme.text }}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles(theme).container}>
       <Header />
@@ -193,11 +269,17 @@ export default function DashboardScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
+        ListEmptyComponent={
+          <Text style={{ color: theme.text + "88", marginTop: 8 }}>
+            Nenhuma vaga cadastrada para o setor {setor}.
+          </Text>
+        }
         ListFooterComponent={
           <View style={styles(theme).footerHint}>
             <Ionicons name="information-circle-outline" size={16} color={theme.text + "88"} />
             <Text style={styles(theme).footerHintText}>
-              A ocupação considera entradas registradas. Se você registrar “Saída”, ajuste a lógica para considerar o último evento por vaga.
+              A ocupação usa os setores da API e as motos ativas por setor. Se sua API também registra "Saída",
+              podemos mudar para considerar o último evento por vaga.
             </Text>
           </View>
         }
@@ -208,130 +290,37 @@ export default function DashboardScreen() {
 
 const styles = (theme) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-      padding: 16,
-    },
-    header: {
-      marginBottom: 8,
-    },
-    headerLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 6,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: "800",
-      color: theme.text,
-    },
-    subtitle: {
-      color: theme.text + "99",
-      marginBottom: 4,
-    },
-    lastUpdated: {
-      color: theme.text + "66",
-      fontSize: 12,
-    },
+    container: { flex: 1, backgroundColor: theme.background, padding: 16 },
+    header: { marginBottom: 8 },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+    title: { fontSize: 24, fontWeight: "800", color: theme.text },
+    subtitle: { color: theme.text + "99", marginBottom: 4 },
+    lastUpdated: { color: theme.text + "66", fontSize: 12 },
 
-    tabs: {
-      flexDirection: "row",
-      gap: 8,
-      marginVertical: 12,
-    },
+    tabs: { flexDirection: "row", gap: 8, marginVertical: 12 },
     tab: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 999,
-      backgroundColor: theme.inputBackground,
-      borderWidth: 1,
-      borderColor: theme.text + "22",
+      paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999,
+      backgroundColor: theme.inputBackground, borderWidth: 1, borderColor: theme.text + "22",
     },
-    tabText: {
-      color: theme.text,
-      fontWeight: "600",
-      fontSize: 12,
-      letterSpacing: 0.2,
-    },
+    tabText: { color: theme.text, fontWeight: "600", fontSize: 12, letterSpacing: 0.2 },
 
-    statsGrid: {
-      gap: 10,
-      marginBottom: 8,
-    },
+    statsGrid: { gap: 10, marginBottom: 8 },
     statCard: {
-      backgroundColor: theme.inputBackground,
-      borderRadius: 14,
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-      borderWidth: 1,
-      borderColor: theme.text + "10",
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+      backgroundColor: theme.inputBackground, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
+      borderWidth: 1, borderColor: theme.text + "10", flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
-    statLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    statLabel: {
-      color: theme.text,
-      fontWeight: "600",
-    },
-    statValue: {
-      fontWeight: "900",
-      fontSize: 18,
-      letterSpacing: 0.3,
-    },
+    statLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+    statLabel: { color: theme.text, fontWeight: "600" },
+    statValue: { fontWeight: "900", fontSize: 18, letterSpacing: 0.3 },
 
-    legendRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 16,
-      marginTop: 8,
-      marginBottom: 4,
-    },
-    legendItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    legendDot: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-    },
-    legendText: {
-      color: theme.text,
-      fontSize: 12,
-    },
+    legendRow: { flexDirection: "row", alignItems: "center", gap: 16, marginTop: 8, marginBottom: 4 },
+    legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    legendDot: { width: 12, height: 12, borderRadius: 6 },
+    legendText: { color: theme.text, fontSize: 12 },
 
-    vaga: {
-      flex: 1,
-      minWidth: 90,
-      height: 56,
-      borderRadius: 12,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 10,
-    },
-    vagaText: {
-      color: "#ffffff",
-      fontWeight: "800",
-      letterSpacing: 0.3,
-    },
+    vaga: { flex: 1, minWidth: 90, height: 56, borderRadius: 12, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+    vagaText: { color: "#ffffff", fontWeight: "800", letterSpacing: 0.3 },
 
-    footerHint: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      marginTop: 6,
-    },
-    footerHintText: {
-      color: theme.text + "88",
-      fontSize: 12,
-      flex: 1,
-    },
+    footerHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+    footerHintText: { color: theme.text + "88", fontSize: 12, flex: 1 },
   });
