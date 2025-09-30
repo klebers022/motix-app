@@ -38,19 +38,11 @@ export default function RegisterScreen({ onRegisterSuccess }) {
       const user = userCredential.user;
       console.log("Cadastro bem-sucedido:", user.uid);
 
-      // ✅ Deixa o Root (App.js) alternar de AuthStack -> Drawer automaticamente
-      onRegisterSuccess && onRegisterSuccess({
-        uid: user.uid,
-        email: user.email,
-      });
-
-      // ❌ NÃO navegue manualmente daqui (essa tela está no AuthStack)
-      // navigation.navigate("Dashboard");
-      // navigation.replace("Dashboard");
-
-      // (Opcional) feedback:
-      // Alert.alert("Sucesso", "Conta criada! Abrindo o app...");
-
+      onRegisterSuccess &&
+        onRegisterSuccess({
+          uid: user.uid,
+          email: user.email,
+        });
     } catch (error) {
       console.error("Erro no cadastro:", error);
       Alert.alert("Erro", error?.message || "Não foi possível cadastrar.");
@@ -71,8 +63,18 @@ export default function RegisterScreen({ onRegisterSuccess }) {
         MOTI<Text style={{ color: theme.primary }}>X</Text> - Cadastro
       </Text>
 
-      <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons name="mail-outline" size={20} color={theme.text} style={styles.icon} />
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: theme.inputBackground },
+        ]}
+      >
+        <Ionicons
+          name="mail-outline"
+          size={20}
+          color={theme.text}
+          style={styles.icon}
+        />
         <TextInput
           placeholder="Email"
           style={[styles.input, { color: theme.text }]}
@@ -84,8 +86,18 @@ export default function RegisterScreen({ onRegisterSuccess }) {
         />
       </View>
 
-      <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons name="lock-closed-outline" size={20} color={theme.text} style={styles.icon} />
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: theme.inputBackground },
+        ]}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          size={20}
+          color={theme.text}
+          style={styles.icon}
+        />
         <TextInput
           placeholder="Senha"
           style={[styles.input, { color: theme.text }]}
@@ -96,8 +108,18 @@ export default function RegisterScreen({ onRegisterSuccess }) {
         />
       </View>
 
-      <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons name="lock-closed-outline" size={20} color={theme.text} style={styles.icon} />
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: theme.inputBackground },
+        ]}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          size={20}
+          color={theme.text}
+          style={styles.icon}
+        />
         <TextInput
           placeholder="Confirmar Senha"
           style={[styles.input, { color: theme.text }]}
@@ -112,7 +134,9 @@ export default function RegisterScreen({ onRegisterSuccess }) {
         style={[styles.button, { backgroundColor: theme.primary }]}
         onPress={handleRegister}
       >
-        <Text style={[styles.buttonText, { color: theme.background }]}>Cadastrar</Text>
+        <Text style={[styles.buttonText, { color: theme.background }]}>
+          Cadastrar
+        </Text>
       </TouchableOpacity>
     </View>
   );

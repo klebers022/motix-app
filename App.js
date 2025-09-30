@@ -5,7 +5,7 @@ import { createDrawerNavigator } from "@react-navigation/drawer";
 import { createStackNavigator } from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signOut } from "firebase/auth";
-import { auth } from "./screens/../services/firebaseConfig"; 
+import { auth } from "./screens/../services/firebaseConfig";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import DashboardScreen from "./screens/DashboardScreen";
@@ -27,13 +27,11 @@ import {
   Image,
 } from "react-native";
 
-
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
-
 
 function CustomDrawerContent(props) {
   const { usuario, onLogout, toggleTheme, theme } = props;
@@ -53,7 +51,9 @@ function CustomDrawerContent(props) {
           source={{
             uri:
               "https://ui-avatars.com/api/?name=" +
-              encodeURIComponent(usuario?.displayName || usuario?.email || "U") +
+              encodeURIComponent(
+                usuario?.displayName || usuario?.email || "U"
+              ) +
               "&background=111111&color=B6FF00",
           }}
           style={styles.avatar}
@@ -161,7 +161,11 @@ function AppDrawer({ usuario, onLogout }) {
         name="Cadastro de Motos"
         options={{
           drawerIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="motorbike" size={size} color={color} />
+            <MaterialCommunityIcons
+              name="motorbike"
+              size={size}
+              color={color}
+            />
           ),
         }}
       >
@@ -250,7 +254,6 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
 
 const styles = StyleSheet.create({
   drawerContainer: {

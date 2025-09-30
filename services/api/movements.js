@@ -11,7 +11,6 @@ export async function createMovement({ motorcycleId, sectorId }) {
 }
 
 export async function listMovements(params = {}) {
-  // se sua API expõe filtros, passe via querystring
   const { data } = await api.get("/movements", { params });
   return data;
 }

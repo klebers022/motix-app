@@ -22,7 +22,11 @@ export default function LoginScreen({ onLoginSuccess }) {
   const handleLogin = async () => {
     console.log("Tentando login com:", email);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        senha
+      );
       const user = userCredential.user;
       console.log("Login bem-sucedido:", user.uid);
       onLoginSuccess?.(user);
@@ -39,8 +43,18 @@ export default function LoginScreen({ onLoginSuccess }) {
         MOTI<Text style={{ color: theme.primary }}>X</Text>
       </Text>
 
-      <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons name="mail-outline" size={20} color={theme.text} style={styles.icon} />
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: theme.inputBackground },
+        ]}
+      >
+        <Ionicons
+          name="mail-outline"
+          size={20}
+          color={theme.text}
+          style={styles.icon}
+        />
         <TextInput
           placeholder="Email"
           style={[styles.input, { color: theme.text }]}
@@ -52,8 +66,18 @@ export default function LoginScreen({ onLoginSuccess }) {
         />
       </View>
 
-      <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground }]}>
-        <Ionicons name="lock-closed-outline" size={20} color={theme.text} style={styles.icon} />
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: theme.inputBackground },
+        ]}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          size={20}
+          color={theme.text}
+          style={styles.icon}
+        />
         <TextInput
           placeholder="Senha"
           style={[styles.input, { color: theme.text }]}
@@ -64,16 +88,25 @@ export default function LoginScreen({ onLoginSuccess }) {
         />
       </View>
 
-      <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={handleLogin}>
-        <Text style={[styles.buttonText, { color: theme.background }]}>Login</Text>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: theme.primary }]}
+        onPress={handleLogin}
+      >
+        <Text style={[styles.buttonText, { color: theme.background }]}>
+          Login
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity>
-        <Text style={[styles.forgot, { color: theme.text }]}>Esqueceu sua senha?</Text>
+        <Text style={[styles.forgot, { color: theme.text }]}>
+          Esqueceu sua senha?
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-        <Text style={[styles.register, { color: theme.primary }]}>Criar conta</Text>
+        <Text style={[styles.register, { color: theme.primary }]}>
+          Criar conta
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={toggleTheme}>

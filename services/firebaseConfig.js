@@ -1,7 +1,5 @@
-// src/services/firebaseConfig.js
 import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCoIqo1CPjTBHmwgK2RlPmD6Lhy3RpNWsw",
@@ -13,11 +11,5 @@ const firebaseConfig = {
   measurementId: "G-8DDYQT1YFV",
 };
 
-export const app = initializeApp(firebaseConfig);
-
-// ✅ Importante no React Native: initializeAuth + persistência nativa
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
-
-// ❌ Não use getAnalytics no mobile
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);

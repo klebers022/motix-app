@@ -18,34 +18,23 @@ import { listSectors } from "../services/api/sectors";
 import { listMotorcycles, createMotorcycle } from "../services/api/motorcycles";
 import { createMovement } from "../services/api/movements";
 
-/**
- * ASSUMPTIONS IMPORTANTES:
- * - /api/sectors => [{ id: Guid, code: "A1" | "B7" | ... }]
- * - /api/motorcycles => [{ motorcycleId: Guid, sectorId: Guid, ... }]
- * - POST /api/motorcycles { motorcycleId, sectorId } cria a moto no setor atual
- * - (opcional) POST /api/movements { motorcycleId, sectorId } registra movimento
- *
- * Se sua API usa nomes diferentes (Id/sectorCode etc.), ajuste nos pontos marcados.
- */
-
 export default function CadastroMotoScreen({ userRM }) {
   const { theme } = useContext(ThemeContext);
 
   // estado de UI
-  const [setor, setSetor] = useState("A");           // A | B | C | D (prefixo)
+  const [setor, setSetor] = useState("A"); // A | B | C | D (prefixo)
   const [placa, setPlaca] = useState("");
   const [vagaSelecionada, setVagaSelecionada] = useState(null); // guarda o CODE, ex "A3"
   const [loading, setLoading] = useState(false);
 
   // dados vindos do backend
-  const [sectors, setSectors] = useState([]);        // lista completa de setores
-  const [motorcycles, setMotorcycles] = useState([]);// lista de motos (para ocupação)
+  const [sectors, setSectors] = useState([]); // lista completa de setores
+  const [motorcycles, setMotorcycles] = useState([]); // lista de motos (para ocupação)
 
   // dicionários de apoio
   const sectorByCode = useMemo(() => {
     const map = new Map();
     for (const s of sectors) {
-      // AJUSTE: se o campo for S.name em vez de S.code, troque aqui
       map.set(s.code, s);
     }
     return map;
@@ -54,18 +43,16 @@ export default function CadastroMotoScreen({ userRM }) {
   const sectorById = useMemo(() => {
     const map = new Map();
     for (const s of sectors) {
-      // AJUSTE: se o ID vier como s.sectorId, troque aqui
       map.set(s.id || s.sectorId, s);
     }
     return map;
   }, [sectors]);
 
-  // agrupa visualmente: vagas do setor atual (filtra por prefixo "A", "B", "C", "D")
+  // agrupa visualmente: vagas do setor atual
   const vagasDoSetor = useMemo(() => {
     return sectors
-      .map(s => s.code)
-      .filter(code => typeof code === "string" && code.startsWith(setor))
-      // ordena "A1..A9" certinho: extrai número no fim, fallback por string
+      .map((s) => s.code)
+      .filter((code) => typeof code === "string" && code.startsWith(setor))
       .sort((a, b) => {
         const na = parseInt(a.slice(1), 10);
         const nb = parseInt(b.slice(1), 10);
@@ -90,7 +77,7 @@ export default function CadastroMotoScreen({ userRM }) {
     try {
       const [secs, motos] = await Promise.all([
         listSectors(),
-        listMotorcycles()
+        listMotorcycles(),
       ]);
       setSectors(Array.isArray(secs) ? secs : []);
       setMotorcycles(Array.isArray(motos) ? motos : []);
@@ -101,7 +88,9 @@ export default function CadastroMotoScreen({ userRM }) {
     }
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   // sempre que mudar o prefixo (A/B/C/D), limpa seleção
   useEffect(() => {
@@ -140,13 +129,9 @@ export default function CadastroMotoScreen({ userRM }) {
       // cria a moto já alocada no setor escolhido
       await createMotorcycle({ motorcycleId, sectorId });
 
-      // opcional: registrar também o movimento inicial
       try {
         await createMovement({ motorcycleId, sectorId });
-      } catch (_) {
-        // silencioso: se sua API já registra o movimento ao criar,
-        // esse POST pode falhar por duplicidade — ignoramos.
-      }
+      } catch (_) {}
 
       // refresh
       await loadAll();
@@ -155,7 +140,10 @@ export default function CadastroMotoScreen({ userRM }) {
 
       Alert.alert("Sucesso", "Moto cadastrada com sucesso!");
     } catch (e) {
-      Alert.alert("Erro ao cadastrar", e?.message || "Falha ao enviar para o servidor.");
+      Alert.alert(
+        "Erro ao cadastrar",
+        e?.message || "Falha ao enviar para o servidor."
+      );
     } finally {
       setLoading(false);
     }
@@ -170,7 +158,11 @@ export default function CadastroMotoScreen({ userRM }) {
     <View style={styles(theme).headerWrap}>
       <View style={styles(theme).titleRow}>
         <View style={styles(theme).titleLeft}>
-          <MaterialCommunityIcons name="motorbike" size={24} color={theme.primary} />
+          <MaterialCommunityIcons
+            name="motorbike"
+            size={24}
+            color={theme.primary}
+          />
           <Text style={styles(theme).titulo}>Cadastro de Moto</Text>
         </View>
         <View style={styles(theme).smallPill}>
@@ -191,7 +183,10 @@ export default function CadastroMotoScreen({ userRM }) {
         onPress={() => setSetor(label)}
         style={[
           styles(theme).chip,
-          ativo && { backgroundColor: theme.primary, borderColor: theme.primary },
+          ativo && {
+            backgroundColor: theme.primary,
+            borderColor: theme.primary,
+          },
         ]}
       >
         <Text
@@ -234,7 +229,10 @@ export default function CadastroMotoScreen({ userRM }) {
         <Text
           style={[
             styles(theme).vagaText,
-            isOcupada && { color: theme.text + "55", textDecorationLine: "line-through" },
+            isOcupada && {
+              color: theme.text + "55",
+              textDecorationLine: "line-through",
+            },
           ]}
         >
           {vaga}
@@ -273,7 +271,12 @@ export default function CadastroMotoScreen({ userRM }) {
 
         <Text style={styles(theme).label}>Placa</Text>
         <View style={styles(theme).inputWrap}>
-          <Ionicons name="car-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
+          <Ionicons
+            name="car-outline"
+            size={18}
+            color={theme.text}
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             value={placa}
             onChangeText={(t) => setPlaca((t || "").toUpperCase())}

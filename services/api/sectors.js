@@ -1,15 +1,15 @@
-// services/api/sectors.js
+
 import { api } from "./client";
 
-// Se sua API retorna { items: [{data}], ... }, desembrulhamos:
+
 const unwrap = (payload) =>
   Array.isArray(payload?.items) ? payload.items.map(it => it?.data ?? it)
   : Array.isArray(payload) ? payload
   : [];
 
 export async function listSectors() {
-  const { data } = await api.get("/Sectors"); // ajuste se sua rota for /sectors
-  return unwrap(data); // => [{ id, code }, ...]
+  const { data } = await api.get("/Sectors"); 
+  return unwrap(data); 
 }
 
 export async function createSector({ code }) {

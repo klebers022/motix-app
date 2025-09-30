@@ -14,6 +14,8 @@ export async function listMotorcycles() {
   // desembrulhar { items: [{ data }], ... } -> []
   const list = Array.isArray(data?.items)
     ? data.items.map((it) => it?.data ?? it)
-    : Array.isArray(data) ? data : [];
+    : Array.isArray(data)
+    ? data
+    : [];
   return list;
 }

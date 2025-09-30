@@ -6,13 +6,13 @@ MOTIX é uma aplicação mobile desenvolvida com **React Native (Expo)** para or
 
 ## 📱 Funcionalidades
 
-- ✅ Login de funcionários com RM e senha
+- ✅ Login com FireBase 
 - ✅ Cadastro de motos com vaga, placa e data/hora
 - ✅ Validação de vaga disponível
 - ✅ Dashboard com visualização em matriz (Setor A)
 - ✅ Exportação de relatórios filtrados por data, placa e setor
 - ✅ Geração de PDF e CSV dos registros
-- ✅ Persistência local usando `AsyncStorage`
+- ✅ Persistência no banco de dados
 
 ---
 
@@ -67,17 +67,7 @@ npx expo start
 
 ---
 
-## 🔐 Usuários de Acesso
 
-A aplicação utiliza autenticação fixa para fins de prototipagem. Os seguintes usuários estão disponíveis:
-
-| Nome             | RM      | Senha   |
-|------------------|---------|---------|
-| Kleber da Silva  | 557887  | 210106  |
-| Nicolas Barutti  | 554944  | 210106  |
-| Lucas Rainha     | 558471  | 210106  |
-
----
 
 ## 📂 Estrutura de Pastas
 
@@ -95,6 +85,12 @@ motix-app/
     ├── RegisterScreen.js
 │   ├── RelatorioScreen.js
 ├── services/
+    └── api/
+        └── client.js
+        └── motorcycles.js
+        └── movements.js
+        └── sectors.js
+        └── validators.js
 │   └── firebaseConfig.js
 ├── App.js
 ├── App.jason
@@ -106,7 +102,7 @@ motix-app/
 
 ## 📌 Observações
 
-- Este projeto foi desenvolvido como parte do **Challenge FIAP 2025 - 1º Semestre**.
+- Este projeto foi desenvolvido como parte do **Challenge FIAP 2025 - 2º Semestre**.
 - Futuramente, o app será integrado à visão computacional com Roboflow para leitura automática de placas e ocupação de vagas.
 
 ---

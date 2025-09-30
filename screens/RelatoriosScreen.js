@@ -38,8 +38,12 @@ export default function RelatoriosScreen() {
       const lista = dados ? JSON.parse(dados) : [];
 
       const filtrados = lista.filter((item) => {
-        const setorOK = setor ? item.vaga?.toUpperCase().startsWith(setor.toUpperCase()) : true;
-        const placaOK = placa ? (item.placa || "").toLowerCase().includes(placa.toLowerCase()) : true;
+        const setorOK = setor
+          ? item.vaga?.toUpperCase().startsWith(setor.toUpperCase())
+          : true;
+        const placaOK = placa
+          ? (item.placa || "").toLowerCase().includes(placa.toLowerCase())
+          : true;
         const dataOK = data ? (item.dataHora || "").startsWith(data) : true;
         return setorOK && placaOK && dataOK;
       });
@@ -89,11 +93,17 @@ export default function RelatoriosScreen() {
                   .map(
                     (item) => `
                       <div class="card">
-                        <div class="badge">${(item.tipo || "Entrada")}</div>
-                        <div class="row"><b>Placa:</b> ${item.placa || "Sem placa"}</div>
+                        <div class="badge">${item.tipo || "Entrada"}</div>
+                        <div class="row"><b>Placa:</b> ${
+                          item.placa || "Sem placa"
+                        }</div>
                         <div class="row"><b>Vaga:</b> ${item.vaga || "-"}</div>
-                        <div class="row"><b>Data/Hora:</b> ${item.dataHora || "-"}</div>
-                        <div class="row"><b>RM:</b> ${item.usuarioRM || "-"}</div>
+                        <div class="row"><b>Data/Hora:</b> ${
+                          item.dataHora || "-"
+                        }</div>
+                        <div class="row"><b>RM:</b> ${
+                          item.usuarioRM || "-"
+                        }</div>
                       </div>
                     `
                   )
@@ -107,8 +117,11 @@ export default function RelatoriosScreen() {
   };
 
   const gerarCSV = async () => {
-    const csvContent = registros.map((item) =>
-      `${item.tipo || "Entrada"},${item.placa || "Sem placa"},${item.vaga || ""},${item.dataHora || ""},${item.usuarioRM || ""}`
+    const csvContent = registros.map(
+      (item) =>
+        `${item.tipo || "Entrada"},${item.placa || "Sem placa"},${
+          item.vaga || ""
+        },${item.dataHora || ""},${item.usuarioRM || ""}`
     );
     const csvFinal = ["Tipo,Placa,Vaga,DataHora,RM", ...csvContent].join("\n");
 
@@ -171,12 +184,18 @@ export default function RelatoriosScreen() {
         {["A", "B", "C", "D"].map((s) => (
           <ChipSetor key={s} label={s} />
         ))}
-        <ChipSetor label={""} />{/* vazio = todos */}
+        <ChipSetor label={""} />
+        {/* vazio = todos */}
       </View>
 
       <View style={styles(theme).inputRow}>
         <View style={styles(theme).inputWrap}>
-          <Ionicons name="car-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
+          <Ionicons
+            name="car-outline"
+            size={18}
+            color={theme.text}
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             style={styles(theme).input}
             placeholder="Placa"
@@ -188,7 +207,12 @@ export default function RelatoriosScreen() {
         </View>
 
         <View style={styles(theme).inputWrap}>
-          <Ionicons name="calendar-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
+          <Ionicons
+            name="calendar-outline"
+            size={18}
+            color={theme.text}
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             style={styles(theme).input}
             placeholder="Data (AAAA-MM-DD)"
@@ -199,7 +223,10 @@ export default function RelatoriosScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles(theme).botaoBuscar} onPress={carregarRegistros}>
+      <TouchableOpacity
+        style={styles(theme).botaoBuscar}
+        onPress={carregarRegistros}
+      >
         <Ionicons name="search" size={18} color={theme.background} />
         <Text style={styles(theme).botaoBuscarText}>Buscar</Text>
       </TouchableOpacity>
@@ -209,11 +236,19 @@ export default function RelatoriosScreen() {
   const LinhaExport = () => (
     <View style={styles(theme).exportRow}>
       <TouchableOpacity style={styles(theme).botaoExportar} onPress={gerarPDF}>
-        <MaterialCommunityIcons name="file-pdf-box" size={20} color={theme.background} />
+        <MaterialCommunityIcons
+          name="file-pdf-box"
+          size={20}
+          color={theme.background}
+        />
         <Text style={styles(theme).botaoExportarText}>Exportar PDF</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles(theme).botaoExportar} onPress={gerarCSV}>
-        <MaterialCommunityIcons name="file-delimited" size={20} color={theme.background} />
+        <MaterialCommunityIcons
+          name="file-delimited"
+          size={20}
+          color={theme.background}
+        />
         <Text style={styles(theme).botaoExportarText}>Exportar CSV</Text>
       </TouchableOpacity>
     </View>
@@ -231,9 +266,7 @@ export default function RelatoriosScreen() {
               size={14}
               color={isEntrada ? "#14532d" : "#7f1d1d"}
             />
-            <Text style={styles(theme).badgeTipoText(isEntrada)}>
-              {tipo}
-            </Text>
+            <Text style={styles(theme).badgeTipoText(isEntrada)}>{tipo}</Text>
           </View>
           <Text style={styles(theme).cardPlaca}>
             {item.placa || "Sem placa"}
@@ -245,19 +278,22 @@ export default function RelatoriosScreen() {
         <View style={styles(theme).row}>
           <Ionicons name="location-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            Vaga: <Text style={styles(theme).rowStrong}>{item.vaga || "-"}</Text>
+            Vaga:{" "}
+            <Text style={styles(theme).rowStrong}>{item.vaga || "-"}</Text>
           </Text>
         </View>
         <View style={styles(theme).row}>
           <Ionicons name="time-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            Data/Hora: <Text style={styles(theme).rowStrong}>{item.dataHora || "-"}</Text>
+            Data/Hora:{" "}
+            <Text style={styles(theme).rowStrong}>{item.dataHora || "-"}</Text>
           </Text>
         </View>
         <View style={styles(theme).row}>
           <Ionicons name="person-circle-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            RM: <Text style={styles(theme).rowStrong}>{item.usuarioRM || "-"}</Text>
+            RM:{" "}
+            <Text style={styles(theme).rowStrong}>{item.usuarioRM || "-"}</Text>
           </Text>
         </View>
       </View>
@@ -268,7 +304,9 @@ export default function RelatoriosScreen() {
     <View style={styles(theme).empty}>
       <Ionicons name="search-outline" size={40} color={theme.text + "88"} />
       <Text style={styles(theme).emptyText}>Nenhum registro encontrado</Text>
-      <Text style={styles(theme).emptySub}>Ajuste os filtros e tente novamente.</Text>
+      <Text style={styles(theme).emptySub}>
+        Ajuste os filtros e tente novamente.
+      </Text>
     </View>
   );
 
