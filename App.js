@@ -11,6 +11,8 @@ import RegisterScreen from "./screens/RegisterScreen";
 import DashboardScreen from "./screens/DashboardScreen";
 import CadastroMotoScreen from "./screens/CadastroMotoScreen";
 import RelatoriosScreen from "./screens/RelatoriosScreen";
+import "./locales/i18n";
+import i18n from "./locales/i18n";
 
 import { ThemeProvider, ThemeContext } from "./contexts/ThemeContext";
 
@@ -36,6 +38,17 @@ const Stack = createStackNavigator();
 function CustomDrawerContent(props) {
   const { usuario, onLogout, toggleTheme, theme } = props;
   const isDark = (theme?.background ?? "#000") !== "#fff";
+
+  // idioma atual
+  const currentLang = i18n.language;
+  const [lang, setLang] = useState(currentLang);
+
+  const toggleLanguage = async () => {
+    const newLang = lang === "pt" ? "es" : "pt";
+    setLang(newLang);
+    i18n.changeLanguage(newLang);
+    await AsyncStorage.setItem("appLanguage", newLang);
+  };
 
   return (
     <DrawerContentScrollView
@@ -75,6 +88,25 @@ function CustomDrawerContent(props) {
 
       {/* Ações rápidas no rodapé */}
       <View style={styles.footer}>
+        {/* Alternar idioma */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={toggleLanguage}
+          style={[styles.rowButton, { backgroundColor: theme.inputBackground }]}
+        >
+          <View style={styles.rowLeft}>
+            <Ionicons
+              name="language"
+              size={22}
+              color={theme.primary}
+              style={{ marginRight: 10 }}
+            />
+            <Text style={[styles.rowText, { color: theme.text }]}>
+              {lang === "pt" ? "Idioma: Português 🇧🇷" : "Idioma: Español 🇪🇸"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Alternar tema */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -207,11 +239,13 @@ export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restaura sessão do AsyncStorage
+  // Restaura sessão e idioma do AsyncStorage
   useEffect(() => {
     const checkLogin = async () => {
       try {
         const user = await AsyncStorage.getItem("usuarioLogado");
+        const savedLang = await AsyncStorage.getItem("appLanguage");
+        if (savedLang) i18n.changeLanguage(savedLang);
         if (user) setUsuario(JSON.parse(user));
       } finally {
         setLoading(false);
@@ -220,7 +254,6 @@ export default function App() {
     checkLogin();
   }, []);
 
-  // Normaliza e salva o usuário (usado por Login e Register)
   const handleLoginSuccess = async (u) => {
     const normalized = {
       uid: u?.uid,

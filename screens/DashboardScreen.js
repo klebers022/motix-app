@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
+import "../locales/i18n"; // inicializa i18n
 import { ThemeContext } from "../contexts/ThemeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -22,42 +24,29 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { listSectors } from "../services/api/sectors";
 import { listMotorcycles } from "../services/api/motorcycles";
 
-/**
- * ASSUMPTIONS:
- * - Sector: { id: Guid, code: "A1" | "B3" | ... }   // AJUSTE se seu backend usa sectorId ou outro nome
- * - Motorcycle: { motorcycleId: Guid, sectorId: Guid, ... }
- * - /api/sectors lista todos os setores (A1..D9)
- * - /api/motorcycles lista todas as motos ativas (ou atuais)
- */
-
 export default function DashboardScreen() {
   const { theme } = useContext(ThemeContext);
+  const { t } = useTranslation();
 
-  const [setor, setSetor] = useState("A"); // A | B | C | D
+  const [setor, setSetor] = useState("A");
   const [sectors, setSectors] = useState([]);
   const [motorcycles, setMotorcycles] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // dicionários auxiliares
   const sectorById = useMemo(() => {
     const map = new Map();
-    for (const s of sectors) {
-      map.set(s.id || s.sectorId, s);
-    }
+    for (const s of sectors) map.set(s.id || s.sectorId, s);
     return map;
   }, [sectors]);
 
   const sectorByCode = useMemo(() => {
     const map = new Map();
-    for (const s of sectors) {
-      map.set(s.code, s);
-    }
+    for (const s of sectors) map.set(s.code, s);
     return map;
   }, [sectors]);
 
-  // lista das vagas do setor selecionado (filtra pelo prefixo A/B/C/D)
   const vagasSetor = useMemo(() => {
     return sectors
       .map((s) => s.code)
@@ -70,7 +59,6 @@ export default function DashboardScreen() {
       });
   }, [sectors, setor]);
 
-  // set de vagas ocupadas (codes) com base nas motos atuais
   const ocupadasSet = useMemo(() => {
     const set = new Set();
     for (const m of motorcycles) {
@@ -80,7 +68,6 @@ export default function DashboardScreen() {
     return set;
   }, [motorcycles, sectorById]);
 
-  // buscar dados da API
   const carregar = useCallback(async () => {
     try {
       const [secs, motos] = await Promise.all([
@@ -113,7 +100,6 @@ export default function DashboardScreen() {
     carregar();
   };
 
-  // status por vaga no setor atual
   const getStatusVaga = (vagaCode) => {
     const ocupada = ocupadasSet.has(vagaCode);
     if (!ocupada) return "empty";
@@ -124,11 +110,9 @@ export default function DashboardScreen() {
     );
     if (moto && (!moto.placa || String(moto.placa).trim() === ""))
       return "noplate";
-
     return "occupied";
   };
 
-  // métricas (no setor atual)
   const totalMotosSetor = useMemo(() => {
     const idsDoSetor = new Set(
       sectors
@@ -151,21 +135,21 @@ export default function DashboardScreen() {
     ).length;
   }, [sectors, motorcycles, setor]);
 
-  const vagasDisponiveis = useMemo(() => {
-    return vagasSetor.filter((code) => !ocupadasSet.has(code)).length;
-  }, [vagasSetor, ocupadasSet]);
+  const vagasDisponiveis = useMemo(
+    () => vagasSetor.filter((code) => !ocupadasSet.has(code)).length,
+    [vagasSetor, ocupadasSet]
+  );
 
-  // UI Components
   const Header = () => (
     <View style={styles(theme).header}>
       <View style={styles(theme).headerLeft}>
         <Ionicons name="speedometer" size={22} color={theme.primary} />
-        <Text style={styles(theme).title}>Dashboard</Text>
+        <Text style={styles(theme).title}>{t("dashboard")}</Text>
       </View>
-      <Text style={styles(theme).subtitle}>Visão geral de ocupação</Text>
+      <Text style={styles(theme).subtitle}>{t("overview")}</Text>
       {lastUpdated && (
         <Text style={styles(theme).lastUpdated}>
-          Atualizado: {lastUpdated.toLocaleTimeString()}
+          {t("updated")}: {lastUpdated.toLocaleTimeString()}
         </Text>
       )}
     </View>
@@ -193,7 +177,7 @@ export default function DashboardScreen() {
                 active && { color: theme.background, fontWeight: "800" },
               ]}
             >
-              Setor {s}
+              {t("sector")} {s}
             </Text>
           </TouchableOpacity>
         );
@@ -217,29 +201,28 @@ export default function DashboardScreen() {
         <View
           style={[styles(theme).legendDot, { backgroundColor: "#4CAF50" }]}
         />
-        <Text style={styles(theme).legendText}>Livre</Text>
+        <Text style={styles(theme).legendText}>{t("free")}</Text>
       </View>
       <View style={styles(theme).legendItem}>
         <View
           style={[styles(theme).legendDot, { backgroundColor: "#9E9E9E" }]}
         />
-        <Text style={styles(theme).legendText}>Ocupada</Text>
+        <Text style={styles(theme).legendText}>{t("occupied")}</Text>
       </View>
       <View style={styles(theme).legendItem}>
         <View
           style={[styles(theme).legendDot, { backgroundColor: "#F44336" }]}
         />
-        <Text style={styles(theme).legendText}>Sem placa</Text>
+        <Text style={styles(theme).legendText}>{t("noplate")}</Text>
       </View>
     </View>
   );
 
   const Vaga = ({ vaga }) => {
     const status = getStatusVaga(vaga);
-    let color = "#4CAF50"; // livre
+    let color = "#4CAF50";
     if (status === "occupied") color = "#9E9E9E";
     if (status === "noplate") color = "#F44336";
-
     return (
       <View style={[styles(theme).vaga, { backgroundColor: color }]}>
         <Text style={styles(theme).vagaText}>{vaga}</Text>
@@ -251,7 +234,7 @@ export default function DashboardScreen() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 8, color: theme.text }}>Carregando...</Text>
+        <Text style={{ marginTop: 8, color: theme.text }}>{t("loading")}</Text>
       </View>
     );
   }
@@ -260,14 +243,11 @@ export default function DashboardScreen() {
     <View style={styles(theme).container}>
       <Header />
       <SectorTabs />
-
-      {/* Cards de métricas */}
       <View style={styles(theme).statsGrid}>
         <StatCard
           icon={<Ionicons name="bicycle" size={18} color={theme.primary} />}
-          label={`Motos no setor ${setor}`}
+          label={t("bikesInSector", { setor })}
           value={totalMotosSetor}
-          accent={theme.text}
         />
         <StatCard
           icon={
@@ -277,21 +257,18 @@ export default function DashboardScreen() {
               color="#F44336"
             />
           }
-          label="Sem placa"
+          label={t("noplate")}
           value={semPlacaSetor}
           accent="#F44336"
         />
         <StatCard
           icon={<Ionicons name="checkmark-done" size={18} color="#4CAF50" />}
-          label="Vagas livres"
+          label={t("availableSpots")}
           value={vagasDisponiveis}
           accent="#4CAF50"
         />
       </View>
-
       <Legend />
-
-      {/* Grade de vagas */}
       <FlatList
         data={vagasSetor}
         numColumns={3}
@@ -308,7 +285,7 @@ export default function DashboardScreen() {
         }
         ListEmptyComponent={
           <Text style={{ color: theme.text + "88", marginTop: 8 }}>
-            Nenhuma vaga cadastrada para o setor {setor}.
+            {t("emptySector", { setor })}
           </Text>
         }
         ListFooterComponent={
@@ -318,11 +295,7 @@ export default function DashboardScreen() {
               size={16}
               color={theme.text + "88"}
             />
-            <Text style={styles(theme).footerHintText}>
-              A ocupação usa os setores da API e as motos ativas por setor. Se
-              sua API também registra "Saída", podemos mudar para considerar o
-              último evento por vaga.
-            </Text>
+            <Text style={styles(theme).footerHintText}>{t("apiInfo")}</Text>
           </View>
         }
       />
@@ -343,7 +316,6 @@ const styles = (theme) =>
     title: { fontSize: 24, fontWeight: "800", color: theme.text },
     subtitle: { color: theme.text + "99", marginBottom: 4 },
     lastUpdated: { color: theme.text + "66", fontSize: 12 },
-
     tabs: { flexDirection: "row", gap: 8, marginVertical: 12 },
     tab: {
       paddingVertical: 8,
@@ -353,13 +325,7 @@ const styles = (theme) =>
       borderWidth: 1,
       borderColor: theme.text + "22",
     },
-    tabText: {
-      color: theme.text,
-      fontWeight: "600",
-      fontSize: 12,
-      letterSpacing: 0.2,
-    },
-
+    tabText: { color: theme.text, fontWeight: "600", fontSize: 12 },
     statsGrid: { gap: 10, marginBottom: 8 },
     statCard: {
       backgroundColor: theme.inputBackground,
@@ -374,19 +340,16 @@ const styles = (theme) =>
     },
     statLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     statLabel: { color: theme.text, fontWeight: "600" },
-    statValue: { fontWeight: "900", fontSize: 18, letterSpacing: 0.3 },
-
+    statValue: { fontWeight: "900", fontSize: 18 },
     legendRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 16,
-      marginTop: 8,
-      marginBottom: 4,
+      marginVertical: 8,
     },
     legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
     legendDot: { width: 12, height: 12, borderRadius: 6 },
     legendText: { color: theme.text, fontSize: 12 },
-
     vaga: {
       flex: 1,
       minWidth: 90,
@@ -396,8 +359,7 @@ const styles = (theme) =>
       alignItems: "center",
       marginBottom: 10,
     },
-    vagaText: { color: "#ffffff", fontWeight: "800", letterSpacing: 0.3 },
-
+    vagaText: { color: "#fff", fontWeight: "800" },
     footerHint: {
       flexDirection: "row",
       alignItems: "center",

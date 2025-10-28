@@ -1,0 +1,15 @@
+{
+  "dashboard": "Dashboard",
+  "overview": "Visão geral de ocupação",
+  "updated": "Atualizado: {{time}}",
+  "sector": "Setor {{letter}}",
+  "loading": "Carregando...",
+  "bikes_in_sector": "Motos no setor {{letter}}",
+  "no_plate": "Sem placa",
+  "free_spots": "Vagas livres",
+  "free": "Livre",
+  "occupied": "Ocupada",
+  "no_plate_short": "Sem placa",
+  "no_spots": "Nenhuma vaga cadastrada para o setor {{letter}}.",
+  "hint": "A ocupação usa os setores da API e as motos ativas por setor. Se sua API também registra 'Saída', podemos mudar para considerar o último evento por vaga."
+}
