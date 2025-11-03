@@ -15,9 +15,11 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { useTranslation } from "react-i18next";
 
 export default function RelatoriosScreen() {
   const { theme } = useContext(ThemeContext);
+  const { t, i18n } = useTranslation();
 
   const [setor, setSetor] = useState("A");
   const [placa, setPlaca] = useState("");
@@ -26,7 +28,6 @@ export default function RelatoriosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Carrega ao abrir e quando filtros mudarem (auto)
   useEffect(() => {
     carregarRegistros();
   }, [setor, placa, data]);
@@ -50,7 +51,7 @@ export default function RelatoriosScreen() {
 
       setRegistros(filtrados);
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar os dados.");
+      Alert.alert(t("error"), t("loadError"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -65,53 +66,34 @@ export default function RelatoriosScreen() {
   const gerarPDF = async () => {
     const htmlContent = `
       <html>
-        <head>
-          <meta charset="utf-8" />
-          <style>
-            body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; color: #0E1B35; }
-            .title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
-            .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #F1F5F9; margin-right: 8px; font-size: 12px; }
-            .card { border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-            .badge { display:inline-block; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #DCFCE7; color: #166534; font-weight:600; margin-bottom:8px;}
-            .row { margin: 3px 0; }
-            hr { border: none; border-top: 1px solid #E2E8F0; margin: 16px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="title">📄 Relatório MOTIX</div>
-          <div>
-            <span class="pill"><b>Setor:</b> ${setor || "Todos"}</span>
-            <span class="pill"><b>Placa:</b> ${placa || "Todas"}</span>
-            <span class="pill"><b>Data:</b> ${data || "Todas"}</span>
-            <span class="pill"><b>Registros:</b> ${registros.length}</span>
-          </div>
+        <body style="font-family: sans-serif; padding: 24px;">
+          <h2>📄 ${t("report.title")}</h2>
+          <p><b>${t("report.filters")}:</b></p>
+          <p>${t("report.sector")}: ${setor || t("all")} | ${t(
+      "report.plate"
+    )}: ${placa || t("all")} | ${t("date")}: ${data || t("all")}</p>
+          <p>${t("records")}: ${registros.length}</p>
           <hr />
           ${
             registros.length === 0
-              ? "<p>Nenhum resultado encontrado.</p>"
+              ? `<p>${t("empty")}</p>`
               : registros
                   .map(
                     (item) => `
-                      <div class="card">
-                        <div class="badge">${item.tipo || "Entrada"}</div>
-                        <div class="row"><b>Placa:</b> ${
-                          item.placa || "Sem placa"
-                        }</div>
-                        <div class="row"><b>Vaga:</b> ${item.vaga || "-"}</div>
-                        <div class="row"><b>Data/Hora:</b> ${
-                          item.dataHora || "-"
-                        }</div>
-                        <div class="row"><b>RM:</b> ${
-                          item.usuarioRM || "-"
-                        }</div>
-                      </div>
-                    `
+            <div style="border:1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom:8px;">
+              <p><b>${t("type")}:</b> ${item.tipo || t("entry")}</p>
+              <p><b>${t("plate")}:</b> ${item.placa || t("noPlate")}</p>
+              <p><b>${t("spot")}:</b> ${item.vaga}</p>
+              <p><b>${t("datetime")}:</b> ${item.dataHora}</p>
+              <p><b>RM:</b> ${item.usuarioRM}</p>
+            </div>`
                   )
                   .join("")
           }
         </body>
       </html>
     `;
+
     const { uri } = await Print.printToFileAsync({ html: htmlContent });
     await Sharing.shareAsync(uri);
   };
@@ -119,31 +101,26 @@ export default function RelatoriosScreen() {
   const gerarCSV = async () => {
     const csvContent = registros.map(
       (item) =>
-        `${item.tipo || "Entrada"},${item.placa || "Sem placa"},${
-          item.vaga || ""
-        },${item.dataHora || ""},${item.usuarioRM || ""}`
+        `${item.tipo || t("entry")},${
+          item.placa || t("noPlate")
+        },${item.vaga},${item.dataHora},${item.usuarioRM}`
     );
-    const csvFinal = ["Tipo,Placa,Vaga,DataHora,RM", ...csvContent].join("\n");
+    const csvFinal = [`${t("type")},${t("plate")},${t("spot")},${t("datetime")},RM`, ...csvContent].join("\n");
 
     const fileUri = FileSystem.documentDirectory + "relatorio_motix.csv";
     await FileSystem.writeAsStringAsync(fileUri, csvFinal, {
       encoding: FileSystem.EncodingType.UTF8,
     });
 
-    await Sharing.shareAsync(fileUri, {
-      mimeType: "text/csv",
-      dialogTitle: "Exportar Relatório CSV",
-      UTI: "public.comma-separated-values-text",
-    });
+    await Sharing.shareAsync(fileUri);
   };
 
-  /** UI helpers */
   const SecaoTitulo = () => (
     <View style={styles(theme).headerWrap}>
       <View style={styles(theme).titleRow}>
         <View style={styles(theme).titleLeft}>
           <Ionicons name="stats-chart" size={22} color={theme.primary} />
-          <Text style={styles(theme).titulo}>Relatórios</Text>
+          <Text style={styles(theme).titulo}>{t("reports")}</Text>
         </View>
         <View style={styles(theme).badgeTotal}>
           <Ionicons name="list" size={14} color={theme.background} />
@@ -151,7 +128,7 @@ export default function RelatoriosScreen() {
         </View>
       </View>
       <Text style={styles(theme).subtitulo}>
-        Filtre os registros e exporte seus dados.
+        {t("reportsSubtitle")}
       </Text>
     </View>
   );
@@ -172,7 +149,7 @@ export default function RelatoriosScreen() {
             ativo && { color: theme.background, fontWeight: "700" },
           ]}
         >
-          {label}
+          {label || t("all")}
         </Text>
       </TouchableOpacity>
     );
@@ -185,20 +162,14 @@ export default function RelatoriosScreen() {
           <ChipSetor key={s} label={s} />
         ))}
         <ChipSetor label={""} />
-        {/* vazio = todos */}
       </View>
 
       <View style={styles(theme).inputRow}>
         <View style={styles(theme).inputWrap}>
-          <Ionicons
-            name="car-outline"
-            size={18}
-            color={theme.text}
-            style={{ marginRight: 8 }}
-          />
+          <Ionicons name="car-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
           <TextInput
             style={styles(theme).input}
-            placeholder="Placa"
+            placeholder={t("plate")}
             placeholderTextColor={theme.text + "90"}
             value={placa}
             onChangeText={setPlaca}
@@ -207,15 +178,10 @@ export default function RelatoriosScreen() {
         </View>
 
         <View style={styles(theme).inputWrap}>
-          <Ionicons
-            name="calendar-outline"
-            size={18}
-            color={theme.text}
-            style={{ marginRight: 8 }}
-          />
+          <Ionicons name="calendar-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
           <TextInput
             style={styles(theme).input}
-            placeholder="Data (AAAA-MM-DD)"
+            placeholder={t("dateMask")}
             placeholderTextColor={theme.text + "90"}
             value={data}
             onChangeText={setData}
@@ -223,12 +189,9 @@ export default function RelatoriosScreen() {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles(theme).botaoBuscar}
-        onPress={carregarRegistros}
-      >
+      <TouchableOpacity style={styles(theme).botaoBuscar} onPress={carregarRegistros}>
         <Ionicons name="search" size={18} color={theme.background} />
-        <Text style={styles(theme).botaoBuscarText}>Buscar</Text>
+        <Text style={styles(theme).botaoBuscarText}>{t("search")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -236,27 +199,19 @@ export default function RelatoriosScreen() {
   const LinhaExport = () => (
     <View style={styles(theme).exportRow}>
       <TouchableOpacity style={styles(theme).botaoExportar} onPress={gerarPDF}>
-        <MaterialCommunityIcons
-          name="file-pdf-box"
-          size={20}
-          color={theme.background}
-        />
-        <Text style={styles(theme).botaoExportarText}>Exportar PDF</Text>
+        <MaterialCommunityIcons name="file-pdf-box" size={20} color={theme.background} />
+        <Text style={styles(theme).botaoExportarText}>{t("exportPDF")}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles(theme).botaoExportar} onPress={gerarCSV}>
-        <MaterialCommunityIcons
-          name="file-delimited"
-          size={20}
-          color={theme.background}
-        />
-        <Text style={styles(theme).botaoExportarText}>Exportar CSV</Text>
+        <MaterialCommunityIcons name="file-delimited" size={20} color={theme.background} />
+        <Text style={styles(theme).botaoExportarText}>{t("exportCSV")}</Text>
       </TouchableOpacity>
     </View>
   );
 
   const CardRegistro = ({ item }) => {
-    const tipo = item.tipo || "Entrada";
-    const isEntrada = (tipo || "").toLowerCase() === "entrada";
+    const tipo = item.tipo || t("entry");
+    const isEntrada = (tipo || "").toLowerCase() === t("entry").toLowerCase();
     return (
       <View style={styles(theme).card}>
         <View style={styles(theme).cardHeader}>
@@ -269,7 +224,7 @@ export default function RelatoriosScreen() {
             <Text style={styles(theme).badgeTipoText(isEntrada)}>{tipo}</Text>
           </View>
           <Text style={styles(theme).cardPlaca}>
-            {item.placa || "Sem placa"}
+            {item.placa || t("noPlate")}
           </Text>
         </View>
 
@@ -278,22 +233,19 @@ export default function RelatoriosScreen() {
         <View style={styles(theme).row}>
           <Ionicons name="location-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            Vaga:{" "}
-            <Text style={styles(theme).rowStrong}>{item.vaga || "-"}</Text>
+            {t("spot")}: <Text style={styles(theme).rowStrong}>{item.vaga || "-"}</Text>
           </Text>
         </View>
         <View style={styles(theme).row}>
           <Ionicons name="time-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            Data/Hora:{" "}
-            <Text style={styles(theme).rowStrong}>{item.dataHora || "-"}</Text>
+            {t("datetime")}: <Text style={styles(theme).rowStrong}>{item.dataHora || "-"}</Text>
           </Text>
         </View>
         <View style={styles(theme).row}>
           <Ionicons name="person-circle-outline" size={16} color={theme.text} />
           <Text style={styles(theme).rowText}>
-            RM:{" "}
-            <Text style={styles(theme).rowStrong}>{item.usuarioRM || "-"}</Text>
+            RM: <Text style={styles(theme).rowStrong}>{item.usuarioRM || "-"}</Text>
           </Text>
         </View>
       </View>
@@ -303,10 +255,8 @@ export default function RelatoriosScreen() {
   const EmptyState = () => (
     <View style={styles(theme).empty}>
       <Ionicons name="search-outline" size={40} color={theme.text + "88"} />
-      <Text style={styles(theme).emptyText}>Nenhum registro encontrado</Text>
-      <Text style={styles(theme).emptySub}>
-        Ajuste os filtros e tente novamente.
-      </Text>
+      <Text style={styles(theme).emptyText}>{t("empty")}</Text>
+      <Text style={styles(theme).emptySub}>{t("adjustFilters")}</Text>
     </View>
   );
 
@@ -334,6 +284,8 @@ export default function RelatoriosScreen() {
     </View>
   );
 }
+
+
 
 /** ======= Styles (dependentes do theme) ======= */
 const styles = (theme) =>

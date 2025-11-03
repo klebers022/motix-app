@@ -13,7 +13,7 @@ MOTIX é uma aplicação mobile desenvolvida com **React Native (Expo)** para or
 - ✅ Exportação de relatórios filtrados por data, placa e setor
 - ✅ Geração de PDF e CSV dos registros
 - ✅ Persistência no banco de dados
-
+ 
 ---
 
 ## 👥 Participantes

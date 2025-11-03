@@ -12,6 +12,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../contexts/ThemeContext";
 import uuid from "react-native-uuid";
+import { useTranslation } from "react-i18next"; // ✅ IMPORT
 
 // === IMPORTES DA API (.NET) ===
 import { listSectors } from "../services/api/sectors";
@@ -20,58 +21,53 @@ import { createMovement } from "../services/api/movements";
 
 export default function CadastroMotoScreen({ userRM }) {
   const { theme } = useContext(ThemeContext);
+  const { t } = useTranslation(); // ✅ HOOK i18n
 
   // estado de UI
-  const [setor, setSetor] = useState("A"); // A | B | C | D (prefixo)
+  const [setor, setSetor] = useState("A");
   const [placa, setPlaca] = useState("");
-  const [vagaSelecionada, setVagaSelecionada] = useState(null); // guarda o CODE, ex "A3"
+  const [vagaSelecionada, setVagaSelecionada] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // dados vindos do backend
-  const [sectors, setSectors] = useState([]); // lista completa de setores
-  const [motorcycles, setMotorcycles] = useState([]); // lista de motos (para ocupação)
+  const [sectors, setSectors] = useState([]);
+  const [motorcycles, setMotorcycles] = useState([]);
 
-  // dicionários de apoio
+  // dicionários
   const sectorByCode = useMemo(() => {
     const map = new Map();
-    for (const s of sectors) {
-      map.set(s.code, s);
-    }
+    sectors.forEach((s) => map.set(s.code, s));
     return map;
   }, [sectors]);
 
   const sectorById = useMemo(() => {
     const map = new Map();
-    for (const s of sectors) {
-      map.set(s.id || s.sectorId, s);
-    }
+    sectors.forEach((s) => map.set(s.id || s.sectorId, s));
     return map;
   }, [sectors]);
 
-  // agrupa visualmente: vagas do setor atual
   const vagasDoSetor = useMemo(() => {
     return sectors
       .map((s) => s.code)
-      .filter((code) => typeof code === "string" && code.startsWith(setor))
+      .filter((code) => code?.startsWith(setor))
       .sort((a, b) => {
         const na = parseInt(a.slice(1), 10);
         const nb = parseInt(b.slice(1), 10);
-        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-        return a.localeCompare(b);
+        return Number.isFinite(na) && Number.isFinite(nb)
+          ? na - nb
+          : a.localeCompare(b);
       });
   }, [sectors, setor]);
 
-  // calcula ocupadas a partir das motos (sectorId -> code)
   const ocupadas = useMemo(() => {
     const set = new Set();
-    for (const m of motorcycles) {
+    motorcycles.forEach((m) => {
       const s = sectorById.get(m.sectorId);
       if (s?.code) set.add(s.code);
-    }
+    });
     return set;
   }, [motorcycles, sectorById]);
 
-  // carregar dados iniciais
   async function loadAll() {
     setLoading(true);
     try {
@@ -79,10 +75,10 @@ export default function CadastroMotoScreen({ userRM }) {
         listSectors(),
         listMotorcycles(),
       ]);
-      setSectors(Array.isArray(secs) ? secs : []);
-      setMotorcycles(Array.isArray(motos) ? motos : []);
-    } catch (e) {
-      Alert.alert("Erro", e?.message || "Falha ao carregar dados do servidor.");
+      setSectors(secs || []);
+      setMotorcycles(motos || []);
+    } catch {
+      Alert.alert(t("erro"), t("alertErroCarregar"));
     } finally {
       setLoading(false);
     }
@@ -92,58 +88,38 @@ export default function CadastroMotoScreen({ userRM }) {
     loadAll();
   }, []);
 
-  // sempre que mudar o prefixo (A/B/C/D), limpa seleção
   useEffect(() => {
     setVagaSelecionada(null);
   }, [setor]);
 
   async function handleCadastro() {
-    if (!vagaSelecionada) {
-      Alert.alert("Ops", "Selecione uma vaga livre antes de cadastrar.");
-      return;
-    }
-    if (ocupadas.has(vagaSelecionada)) {
-      Alert.alert("Ops", "Essa vaga está ocupada. Escolha outra vaga.");
-      return;
-    }
+    if (!vagaSelecionada)
+      return Alert.alert(t("ops"), t("alertOpsEscolhaVaga"));
 
-    // pega o setor escolhido pelo CODE (ex: "A3") -> id (Guid) para enviar à API
+    if (ocupadas.has(vagaSelecionada))
+      return Alert.alert(t("ops"), t("alertVagaOcupada"));
+
     const sector = sectorByCode.get(vagaSelecionada);
-    if (!sector) {
-      Alert.alert("Erro", "Setor selecionado não encontrado.");
-      return;
-    }
+    if (!sector) return Alert.alert(t("erro"), t("alertSetorNaoEncontrado"));
 
-    // AJUSTE: se seu ID do setor vier como sector.sectorId, troque abaixo
     const sectorId = sector.id || sector.sectorId;
-    if (!sectorId) {
-      Alert.alert("Erro", "Setor sem ID válido.");
-      return;
-    }
+    if (!sectorId) return Alert.alert(t("erro"), t("alertSetorSemId"));
 
-    // gera um novo GUID para a moto (se o backend não gerar)
     const motorcycleId = uuid.v4();
-
     setLoading(true);
-    try {
-      // cria a moto já alocada no setor escolhido
-      await createMotorcycle({ motorcycleId, sectorId });
 
+    try {
+      await createMotorcycle({ motorcycleId, sectorId });
       try {
         await createMovement({ motorcycleId, sectorId });
-      } catch (_) {}
+      } catch {}
 
-      // refresh
       await loadAll();
       setPlaca("");
       setVagaSelecionada(null);
-
-      Alert.alert("Sucesso", "Moto cadastrada com sucesso!");
-    } catch (e) {
-      Alert.alert(
-        "Erro ao cadastrar",
-        e?.message || "Falha ao enviar para o servidor."
-      );
+      Alert.alert(t("sucesso"), t("alertSucesso"));
+    } catch {
+      Alert.alert(t("erro"), t("alertErroCadastrar"));
     } finally {
       setLoading(false);
     }
@@ -163,16 +139,10 @@ export default function CadastroMotoScreen({ userRM }) {
             size={24}
             color={theme.primary}
           />
-          <Text style={styles(theme).titulo}>Cadastro de Moto</Text>
-        </View>
-        <View style={styles(theme).smallPill}>
-          <Ionicons name="grid-outline" size={14} color={theme.background} />
-          <Text style={styles(theme).smallPillText}>{vagasDoSetor.length}</Text>
+          <Text style={styles(theme).titulo}>{t("cadastroTitulo")}</Text>
         </View>
       </View>
-      <Text style={styles(theme).subtitulo}>
-        Escolha o setor, selecione uma vaga livre e informe a placa.
-      </Text>
+      <Text style={styles(theme).subtitulo}>{t("cadastroSubtitulo")}</Text>
     </View>
   );
 
@@ -195,19 +165,11 @@ export default function CadastroMotoScreen({ userRM }) {
             ativo && { color: theme.background, fontWeight: "800" },
           ]}
         >
-          {label || "Todos"}
+          {label}
         </Text>
       </TouchableOpacity>
     );
   };
-
-  const LinhaSetor = () => (
-    <View style={styles(theme).chipsRow}>
-      {["A", "B", "C", "D"].map((s) => (
-        <ChipSetor key={s} label={s} />
-      ))}
-    </View>
-  );
 
   const VagaItem = ({ vaga }) => {
     const isOcupada = ocupadas.has(vaga);
@@ -216,10 +178,7 @@ export default function CadastroMotoScreen({ userRM }) {
     return (
       <TouchableOpacity
         activeOpacity={isOcupada ? 1 : 0.8}
-        onPress={() => {
-          if (isOcupada) return;
-          setVagaSelecionada(vaga);
-        }}
+        onPress={() => !isOcupada && setVagaSelecionada(vaga)}
         style={[
           styles(theme).vagaCard,
           isOcupada && styles(theme).vagaOcupada,
@@ -244,7 +203,7 @@ export default function CadastroMotoScreen({ userRM }) {
             color={isOcupada ? "#7f1d1d" : "#14532d"}
           />
           <Text style={styles(theme).vagaBadgeText(isOcupada)}>
-            {isOcupada ? "Ocupada" : "Livre"}
+            {isOcupada ? t("ocupada") : t("livre")}
           </Text>
         </View>
       </TouchableOpacity>
@@ -255,7 +214,9 @@ export default function CadastroMotoScreen({ userRM }) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 8, color: theme.text }}>Carregando...</Text>
+        <Text style={{ marginTop: 8, color: theme.text }}>
+          {t("carregando")}
+        </Text>
       </View>
     );
   }
@@ -264,12 +225,16 @@ export default function CadastroMotoScreen({ userRM }) {
     <View style={styles(theme).container}>
       <SecaoTitulo />
 
-      {/* Card de formulário */}
       <View style={styles(theme).formCard}>
-        <Text style={styles(theme).label}>Setor</Text>
-        <LinhaSetor />
+        <Text style={styles(theme).label}>{t("setor")}</Text>
 
-        <Text style={styles(theme).label}>Placa</Text>
+        <View style={styles(theme).chipsRow}>
+          {["A", "B", "C", "D"].map((s) => (
+            <ChipSetor key={s} label={s} />
+          ))}
+        </View>
+
+        <Text style={styles(theme).label}>{t("placa")}</Text>
         <View style={styles(theme).inputWrap}>
           <Ionicons
             name="car-outline"
@@ -280,25 +245,25 @@ export default function CadastroMotoScreen({ userRM }) {
           <TextInput
             value={placa}
             onChangeText={(t) => setPlaca((t || "").toUpperCase())}
-            placeholder="Digite a placa (opcional)"
+            placeholder={t("placeholderPlaca")}
             style={styles(theme).input}
             placeholderTextColor={theme.text + "80"}
             autoCapitalize="characters"
           />
         </View>
 
-        <Text style={styles(theme).label}>Vagas do setor {setor}</Text>
+        <Text style={styles(theme).label}>{t("vagasDoSetor", { setor })}</Text>
+
         <FlatList
           data={vagasDoSetor}
-          keyExtractor={(item) => item}
+          keyExtractor={(i) => i}
           numColumns={3}
           columnWrapperStyle={{ gap: 10 }}
           contentContainerStyle={{ paddingVertical: 6 }}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => <VagaItem vaga={item} />}
           ListEmptyComponent={
-            <Text style={{ color: theme.text + "99", marginTop: 8 }}>
-              Nenhuma vaga cadastrada no setor {setor}.
+            <Text style={{ color: theme.text + "99" }}>
+              {t("nenhumaVaga", { setor })}
             </Text>
           }
         />
@@ -306,21 +271,21 @@ export default function CadastroMotoScreen({ userRM }) {
         <View style={styles(theme).actionsRow}>
           <TouchableOpacity
             onPress={limpar}
-            style={[styles(theme).btnOutlined]}
+            style={styles(theme).btnOutlined}
             disabled={loading}
           >
             <Ionicons name="refresh" size={18} color={theme.text} />
-            <Text style={styles(theme).btnOutlinedText}>Limpar</Text>
+            <Text style={styles(theme).btnOutlinedText}>{t("limpar")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleCadastro}
-            style={[styles(theme).btnPrimary]}
+            style={styles(theme).btnPrimary}
             disabled={loading || !vagaSelecionada}
           >
             <Ionicons name="save-outline" size={18} color={theme.background} />
             <Text style={styles(theme).btnPrimaryText}>
-              {loading ? "Salvando..." : "Cadastrar"}
+              {loading ? t("salvando") : t("cadastrar")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -343,37 +308,14 @@ const styles = (theme) =>
       alignItems: "center",
       justifyContent: "space-between",
     },
-    titleLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
+    titleLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     titulo: {
       fontSize: 22,
       fontWeight: "800",
       color: theme.text,
       marginLeft: 8,
     },
-    subtitulo: {
-      color: theme.text + "99",
-      marginTop: 6,
-      marginLeft: 32,
-    },
-    smallPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: theme.primary,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-    },
-    smallPillText: {
-      color: theme.background,
-      fontWeight: "800",
-      fontSize: 12,
-    },
-
+    subtitulo: { color: theme.text + "99", marginTop: 6, marginLeft: 32 },
     formCard: {
       backgroundColor: theme.inputBackground,
       borderRadius: 16,
@@ -390,7 +332,6 @@ const styles = (theme) =>
     },
     chipsRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
       gap: 8,
       marginBottom: 6,
     },
@@ -408,7 +349,6 @@ const styles = (theme) =>
       fontSize: 12,
       letterSpacing: 0.2,
     },
-
     inputWrap: {
       flexDirection: "row",
       alignItems: "center",
@@ -420,7 +360,6 @@ const styles = (theme) =>
       height: 44,
     },
     input: { flex: 1, color: theme.text, height: 44 },
-
     vagaCard: {
       flex: 1,
       minWidth: 90,
@@ -432,7 +371,7 @@ const styles = (theme) =>
       borderWidth: 1,
       borderColor: theme.text + "22",
     },
-    vagaOcupada: { backgroundColor: theme.background, opacity: 0.7 },
+    vagaOcupada: { opacity: 0.7 },
     vagaText: { color: theme.text, fontWeight: "700", marginBottom: 6 },
     vagaBadge: (isOcupada) => ({
       flexDirection: "row",
@@ -448,7 +387,6 @@ const styles = (theme) =>
       fontWeight: "700",
       fontSize: 12,
     }),
-
     actionsRow: {
       flexDirection: "row",
       gap: 10,
