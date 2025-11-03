@@ -12,7 +12,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../contexts/ThemeContext";
 import uuid from "react-native-uuid";
-import { useTranslation } from "react-i18next"; // ✅ IMPORT
+import { useTranslation } from "react-i18next";
+
+// ✅ IMPORT PARA NOTIFICAÇÕES
+import * as Notifications from "expo-notifications";
 
 // === IMPORTES DA API (.NET) ===
 import { listSectors } from "../services/api/sectors";
@@ -21,7 +24,36 @@ import { createMovement } from "../services/api/movements";
 
 export default function CadastroMotoScreen({ userRM }) {
   const { theme } = useContext(ThemeContext);
-  const { t } = useTranslation(); // ✅ HOOK i18n
+  const { t } = useTranslation();
+
+  const [expoPushToken, setExpoPushToken] = useState(null);
+
+  // ✅ CONFIGURAR NOTIFICAÇÕES
+  useEffect(() => {
+    async function registerForPushNotifications() {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Atenção", "Permissão de notificação negada");
+        return;
+      }
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      setExpoPushToken(token);
+    }
+
+    registerForPushNotifications();
+  }, []);
+
+  // FUNÇÃO PARA DISPARAR PUSH
+  async function sendLocalNotification(vaga) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Nova moto cadastrada 🏍️",
+        body: `Uma moto foi cadastrada na vaga ${vaga}`,
+        sound: true,
+      },
+      trigger: null,
+    });
+  }
 
   // estado de UI
   const [setor, setSetor] = useState("A");
@@ -92,6 +124,7 @@ export default function CadastroMotoScreen({ userRM }) {
     setVagaSelecionada(null);
   }, [setor]);
 
+  // ✅ ALTERADO: cadastra moto e envia notificação
   async function handleCadastro() {
     if (!vagaSelecionada)
       return Alert.alert(t("ops"), t("alertOpsEscolhaVaga"));
@@ -110,15 +143,17 @@ export default function CadastroMotoScreen({ userRM }) {
 
     try {
       await createMotorcycle({ motorcycleId, sectorId });
-      try {
-        await createMovement({ motorcycleId, sectorId });
-      } catch {}
+      await createMovement({ motorcycleId, sectorId });
 
       await loadAll();
       setPlaca("");
       setVagaSelecionada(null);
+
+      // ✅ ENVIAR PUSH LOCAL
+      await sendLocalNotification(vagaSelecionada);
+
       Alert.alert(t("sucesso"), t("alertSucesso"));
-    } catch {
+    } catch (e) {
       Alert.alert(t("erro"), t("alertErroCadastrar"));
     } finally {
       setLoading(false);
@@ -129,6 +164,9 @@ export default function CadastroMotoScreen({ userRM }) {
     setPlaca("");
     setVagaSelecionada(null);
   };
+
+  // ... (todo o restante do SEU CÓDIGO permanece idêntico)
+
 
   const SecaoTitulo = () => (
     <View style={styles(theme).headerWrap}>
