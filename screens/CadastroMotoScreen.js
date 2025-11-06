@@ -126,6 +126,7 @@ export default function CadastroMotoScreen({ userRM }) {
 
   // ✅ ALTERADO: cadastra moto e envia notificação
   async function handleCadastro() {
+    console.log("Ricardo Safado")
     if (!vagaSelecionada)
       return Alert.alert(t("ops"), t("alertOpsEscolhaVaga"));
 
@@ -143,7 +144,7 @@ export default function CadastroMotoScreen({ userRM }) {
 
     try {
       await createMotorcycle({ motorcycleId, sectorId });
-      await createMovement({ motorcycleId, sectorId });
+      await createMovement({ userId, sectorId });
 
       await loadAll();
       setPlaca("");
@@ -164,8 +165,6 @@ export default function CadastroMotoScreen({ userRM }) {
     setPlaca("");
     setVagaSelecionada(null);
   };
-
-  // ... (todo o restante do SEU CÓDIGO permanece idêntico)
 
 
   const SecaoTitulo = () => (
@@ -267,7 +266,7 @@ export default function CadastroMotoScreen({ userRM }) {
         <Text style={styles(theme).label}>{t("setor")}</Text>
 
         <View style={styles(theme).chipsRow}>
-          {["A", "B", "C", "D"].map((s) => (
+          {["A", "B", "C", "D", "E"].map((s) => (
             <ChipSetor key={s} label={s} />
           ))}
         </View>
@@ -317,9 +316,9 @@ export default function CadastroMotoScreen({ userRM }) {
           </TouchableOpacity>
 
           <TouchableOpacity
+            
             onPress={handleCadastro}
             style={styles(theme).btnPrimary}
-            disabled={loading || !vagaSelecionada}
           >
             <Ionicons name="save-outline" size={18} color={theme.background} />
             <Text style={styles(theme).btnPrimaryText}>

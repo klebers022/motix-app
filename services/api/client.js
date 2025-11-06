@@ -2,7 +2,7 @@ import axios from "axios";
 import { Platform } from "react-native";
 
 const LOCAL_PC_IP = "192.168.10.212"; // IP da sua máquina na rede
-const PORT = 5167;
+const PORT = 8080;
 
 function getBaseURL() {
   if (Platform.OS === "web") {
