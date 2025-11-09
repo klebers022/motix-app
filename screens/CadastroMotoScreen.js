@@ -8,13 +8,14 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../contexts/ThemeContext";
 import uuid from "react-native-uuid";
 import { useTranslation } from "react-i18next";
 
-// ✅ IMPORT PARA NOTIFICAÇÕES
+// ✅ IMPORT PARA NOTIFICAÇÕES (nativo)
 import * as Notifications from "expo-notifications";
 
 // === IMPORTES DA API (.NET) ===
@@ -27,32 +28,85 @@ export default function CadastroMotoScreen({ userRM }) {
   const { t } = useTranslation();
 
   const [expoPushToken, setExpoPushToken] = useState(null);
+  const [webNotifPermission, setWebNotifPermission] = useState(null);
 
-  // ✅ CONFIGURAR NOTIFICAÇÕES
-  useEffect(() => {
-    async function registerForPushNotifications() {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Atenção", "Permissão de notificação negada");
-        return;
+  // Helpers WEB
+  const webNotificationsSupported =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    "Notification" in window;
+
+  async function ensureWebPermission() {
+    // chama APENAS em fluxo de clique
+    if (!webNotificationsSupported) return "denied";
+    let perm = Notification.permission; // 'default' | 'granted' | 'denied'
+    if (perm === "default") {
+      // pedir permissão agora (gesto do usuário!)
+      try {
+        perm = await Notification.requestPermission();
+      } catch (e) {
+        // alguns browsers exigem callback style; como fallback, trata como negado
+        perm = "denied";
       }
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      setExpoPushToken(token);
     }
+    setWebNotifPermission(perm);
+    return perm;
+  }
 
-    registerForPushNotifications();
+  // ✅ CONFIGURAR NOTIFICAÇÕES nativo no mount (no web não pedimos aqui!)
+  useEffect(() => {
+    async function registerForNativeNotifications() {
+      if (Platform.OS === "web") return; // importante: não pedir no mount no web
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Atenção", "Permissão de notificação negada");
+          return;
+        }
+        const tokenResponse = await Notifications.getExpoPushTokenAsync();
+        const token = tokenResponse?.data;
+        if (token) setExpoPushToken(token);
+      } catch (e) {
+        console.warn("Falha ao registrar notificações (nativo):", e);
+      }
+    }
+    registerForNativeNotifications();
   }, []);
 
-  // FUNÇÃO PARA DISPARAR PUSH
-  async function sendLocalNotification(vaga) {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Nova moto cadastrada 🏍️",
-        body: `Uma moto foi cadastrada na vaga ${vaga}`,
-        sound: true,
-      },
-      trigger: null,
-    });
+  // ✅ Função cross-platform para disparar notificação local
+  async function sendNotification(vaga) {
+    try {
+      const title = "Nova moto cadastrada 🏍️";
+      const body = `Uma moto foi cadastrada na vaga ${vaga}`;
+
+      if (Platform.OS === "web") {
+        if (!webNotificationsSupported) {
+          alert(`${title}\n${body}`);
+          return;
+        }
+
+        // garantir permissão no fluxo de clique
+        const perm = await ensureWebPermission();
+
+        if (perm === "granted") {
+          new Notification(title, { body });
+          return;
+        }
+
+        // se negado ou não suportado, fallback
+        alert(`${title}\n${body}`);
+        return;
+      }
+
+      // Nativo: local push via expo-notifications
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body, sound: true },
+        trigger: null,
+      });
+    } catch (e) {
+      console.warn("Erro ao enviar notificação:", e);
+      Alert.alert("Aviso", "Não foi possível exibir a notificação, mas o cadastro foi concluído.");
+    }
   }
 
   // estado de UI
@@ -85,9 +139,7 @@ export default function CadastroMotoScreen({ userRM }) {
       .sort((a, b) => {
         const na = parseInt(a.slice(1), 10);
         const nb = parseInt(b.slice(1), 10);
-        return Number.isFinite(na) && Number.isFinite(nb)
-          ? na - nb
-          : a.localeCompare(b);
+        return Number.isFinite(na) && Number.isFinite(nb) ? na - nb : a.localeCompare(b);
       });
   }, [sectors, setor]);
 
@@ -103,10 +155,7 @@ export default function CadastroMotoScreen({ userRM }) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [secs, motos] = await Promise.all([
-        listSectors(),
-        listMotorcycles(),
-      ]);
+      const [secs, motos] = await Promise.all([listSectors(), listMotorcycles()]);
       setSectors(secs || []);
       setMotorcycles(motos || []);
     } catch {
@@ -124,13 +173,10 @@ export default function CadastroMotoScreen({ userRM }) {
     setVagaSelecionada(null);
   }, [setor]);
 
-  // ✅ ALTERADO: cadastra moto e envia notificação
+  // ✅ ALTERADO: cadastra moto e envia notificação cross-platform (mobile + web)
   async function handleCadastro() {
-    if (!vagaSelecionada)
-      return Alert.alert(t("ops"), t("alertOpsEscolhaVaga"));
-
-    if (ocupadas.has(vagaSelecionada))
-      return Alert.alert(t("ops"), t("alertVagaOcupada"));
+    if (!vagaSelecionada) return Alert.alert(t("ops"), t("alertOpsEscolhaVaga"));
+    if (ocupadas.has(vagaSelecionada)) return Alert.alert(t("ops"), t("alertVagaOcupada"));
 
     const sector = sectorByCode.get(vagaSelecionada);
     if (!sector) return Alert.alert(t("erro"), t("alertSetorNaoEncontrado"));
@@ -138,22 +184,23 @@ export default function CadastroMotoScreen({ userRM }) {
     const sectorId = sector.id || sector.sectorId;
     if (!sectorId) return Alert.alert(t("erro"), t("alertSetorSemId"));
 
-    const motorcycleId = uuid.v4();
+    const motorcycleId = String(uuid.v4());
     setLoading(true);
 
     try {
-      await createMotorcycle({ motorcycleId, sectorId });
+      await createMotorcycle({ motorcycleId, sectorId, plate: (placa || "").trim() || undefined });
       await createMovement({ motorcycleId, sectorId });
 
       await loadAll();
       setPlaca("");
       setVagaSelecionada(null);
 
-      // ✅ ENVIAR PUSH LOCAL
-      await sendLocalNotification(vagaSelecionada);
+      // ✅ ENVIAR NOTIFICAÇÃO (funciona no app e no web)
+      await sendNotification(vagaSelecionada);
 
       Alert.alert(t("sucesso"), t("alertSucesso"));
     } catch (e) {
+      console.warn(e);
       Alert.alert(t("erro"), t("alertErroCadastrar"));
     } finally {
       setLoading(false);
@@ -165,18 +212,11 @@ export default function CadastroMotoScreen({ userRM }) {
     setVagaSelecionada(null);
   };
 
-  // ... (todo o restante do SEU CÓDIGO permanece idêntico)
-
-
   const SecaoTitulo = () => (
     <View style={styles(theme).headerWrap}>
       <View style={styles(theme).titleRow}>
         <View style={styles(theme).titleLeft}>
-          <MaterialCommunityIcons
-            name="motorbike"
-            size={24}
-            color={theme.primary}
-          />
+          <MaterialCommunityIcons name="motorbike" size={24} color={theme.primary} />
           <Text style={styles(theme).titulo}>{t("cadastroTitulo")}</Text>
         </View>
       </View>
@@ -189,22 +229,9 @@ export default function CadastroMotoScreen({ userRM }) {
     return (
       <TouchableOpacity
         onPress={() => setSetor(label)}
-        style={[
-          styles(theme).chip,
-          ativo && {
-            backgroundColor: theme.primary,
-            borderColor: theme.primary,
-          },
-        ]}
+        style={[styles(theme).chip, ativo && { backgroundColor: theme.primary, borderColor: theme.primary }]}
       >
-        <Text
-          style={[
-            styles(theme).chipText,
-            ativo && { color: theme.background, fontWeight: "800" },
-          ]}
-        >
-          {label}
-        </Text>
+        <Text style={[styles(theme).chipText, ativo && { color: theme.background, fontWeight: "800" }]}>{label}</Text>
       </TouchableOpacity>
     );
   };
@@ -226,10 +253,7 @@ export default function CadastroMotoScreen({ userRM }) {
         <Text
           style={[
             styles(theme).vagaText,
-            isOcupada && {
-              color: theme.text + "55",
-              textDecorationLine: "line-through",
-            },
+            isOcupada && { color: theme.text + "55", textDecorationLine: "line-through" },
           ]}
         >
           {vaga}
@@ -240,9 +264,7 @@ export default function CadastroMotoScreen({ userRM }) {
             size={14}
             color={isOcupada ? "#7f1d1d" : "#14532d"}
           />
-          <Text style={styles(theme).vagaBadgeText(isOcupada)}>
-            {isOcupada ? t("ocupada") : t("livre")}
-          </Text>
+          <Text style={styles(theme).vagaBadgeText(isOcupada)}>{isOcupada ? t("ocupada") : t("livre")}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -252,9 +274,7 @@ export default function CadastroMotoScreen({ userRM }) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 8, color: theme.text }}>
-          {t("carregando")}
-        </Text>
+        <Text style={{ marginTop: 8, color: theme.text }}>{t("carregando")}</Text>
       </View>
     );
   }
@@ -274,15 +294,10 @@ export default function CadastroMotoScreen({ userRM }) {
 
         <Text style={styles(theme).label}>{t("placa")}</Text>
         <View style={styles(theme).inputWrap}>
-          <Ionicons
-            name="car-outline"
-            size={18}
-            color={theme.text}
-            style={{ marginRight: 8 }}
-          />
+          <Ionicons name="car-outline" size={18} color={theme.text} style={{ marginRight: 8 }} />
           <TextInput
             value={placa}
-            onChangeText={(t) => setPlaca((t || "").toUpperCase())}
+            onChangeText={(tx) => setPlaca((tx || "").toUpperCase())}
             placeholder={t("placeholderPlaca")}
             style={styles(theme).input}
             placeholderTextColor={theme.text + "80"}
@@ -299,32 +314,18 @@ export default function CadastroMotoScreen({ userRM }) {
           columnWrapperStyle={{ gap: 10 }}
           contentContainerStyle={{ paddingVertical: 6 }}
           renderItem={({ item }) => <VagaItem vaga={item} />}
-          ListEmptyComponent={
-            <Text style={{ color: theme.text + "99" }}>
-              {t("nenhumaVaga", { setor })}
-            </Text>
-          }
+          ListEmptyComponent={<Text style={{ color: theme.text + "99" }}>{t("nenhumaVaga", { setor })}</Text>}
         />
 
         <View style={styles(theme).actionsRow}>
-          <TouchableOpacity
-            onPress={limpar}
-            style={styles(theme).btnOutlined}
-            disabled={loading}
-          >
+          <TouchableOpacity onPress={limpar} style={styles(theme).btnOutlined} disabled={loading}>
             <Ionicons name="refresh" size={18} color={theme.text} />
             <Text style={styles(theme).btnOutlinedText}>{t("limpar")}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleCadastro}
-            style={styles(theme).btnPrimary}
-            disabled={loading || !vagaSelecionada}
-          >
+        <TouchableOpacity onPress={handleCadastro} style={styles(theme).btnPrimary} disabled={loading || !vagaSelecionada}>
             <Ionicons name="save-outline" size={18} color={theme.background} />
-            <Text style={styles(theme).btnPrimaryText}>
-              {loading ? t("salvando") : t("cadastrar")}
-            </Text>
+            <Text style={styles(theme).btnPrimaryText}>{loading ? t("salvando") : t("cadastrar")}</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "757932393161",
+    "project_id": "motix-e1d90",
+    "storage_bucket": "motix-e1d90.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757932393161:android:7298e6f2f356b6110c4318",
+        "android_client_info": {
+          "package_name": "com.klebers022.projetomotix"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "757932393161-l70rus3b7itmud1fuqktrbaj5cj8r7up.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgI8H7ZAIjK7C0Y5oGxtenpYDICZ33tQ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "757932393161-l70rus3b7itmud1fuqktrbaj5cj8r7up.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

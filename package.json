@@ -19,10 +19,12 @@
     "axios": "^1.12.2",
     "expo": "~53.0.7",
     "expo-file-system": "^18.1.10",
+    "expo-firebase-core": "^6.0.0",
+    "expo-notifications": "~0.31.4",
     "expo-print": "~14.1.4",
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
-    "firebase": "^12.2.1",
+    "firebase": "^12.5.0",
     "i18next": "^25.6.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -35,8 +37,7 @@
     "react-native-screens": "~4.10.0",
     "react-native-uuid": "^2.0.3",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-web": "^0.20.0",
-    "expo-notifications": "~0.31.4"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
